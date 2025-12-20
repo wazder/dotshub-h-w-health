@@ -1,0 +1,3 @@
+# Placeholder for trained model weights
+# tumor_unet.pth - Tumor segmentation weights
+# alzheimer_resnet.pth - Alzheimer classifier weights
