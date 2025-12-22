@@ -35,8 +35,8 @@ from .models import (
 )
 from .services.pacs_service import pacs_service
 
-# GERÇEK SERVİSLER - Mock değil!
-from .services.ai_service_real import ai_service
+# GERÇEK SERVİSLER - Multi-label model (14 hastalık)
+from .services.ai_service_multilabel import ai_service
 from .services.dataset_service import dataset_service
 from .services.vector_search_service import vector_search_service as search_service
 
@@ -154,7 +154,11 @@ async def analyze_image(
         ai_analysis = AIAnalysisResult(
             probability=ai_result["probability"],
             label=ai_result["label"],
+            label_tr=ai_result.get("label_tr", ""),
             confidence=ai_result["confidence"],
+            is_pathology=ai_result.get("is_pathology", False),
+            detected_diseases=ai_result.get("detected_diseases", []),
+            disease_count=ai_result.get("disease_count", 0),
             embedding=ai_result["embedding"]
         )
         

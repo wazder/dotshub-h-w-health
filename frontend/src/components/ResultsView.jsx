@@ -1,56 +1,32 @@
 import React, { useState, useMemo } from 'react';
 
-// Model çıktısı için çeviriler (Binary Classification: No Finding vs Mass/Nodule)
-const MODEL_LABELS = {
-    'No Finding': {
-        tr: 'Normal - Bulgu Yok',
-        description: 'Yapay zeka modeli görüntüde kitle veya nodül tespit etmedi.',
-        color: 'green'
-    },
-    'Mass|Nodule': {
-        tr: 'Patoloji Tespit Edildi',
-        description: 'Yapay zeka modeli görüntüde kitle veya nodül şüphesi tespit etti. Uzman değerlendirmesi önerilir.',
-        color: 'red'
-    },
-    'Pathology': {
-        tr: 'Patoloji Tespit Edildi',
-        description: 'Yapay zeka modeli görüntüde kitle veya nodül şüphesi tespit etti.',
-        color: 'red'
-    },
-    'Error': {
-        tr: 'Analiz Hatası',
-        description: 'Görüntü analiz edilemedi.',
-        color: 'yellow'
-    }
-};
-
-// Dataset'teki tanılar için çeviriler (benzer vakalarda gösterilir)
-const DIAGNOSIS_TERMS = {
-    'No Finding': 'Bulgu Yok',
-    'Nodule': 'Nodül',
-    'Mass': 'Kitle',
-    'Mass|Nodule': 'Kitle/Nodül',
-    'Infiltration': 'İnfiltrasyon',
-    'Atelectasis': 'Atelektazi',
-    'Effusion': 'Efüzyon',
-    'Pneumothorax': 'Pnömotoraks',
-    'Consolidation': 'Konsolidasyon',
-    'Pleural_Thickening': 'Plevral Kalınlaşma',
-    'Cardiomegaly': 'Kardiyomegali',
-    'Emphysema': 'Amfizem',
-    'Edema': 'Ödem',
-    'Fibrosis': 'Fibrozis',
-    'Pneumonia': 'Pnömoni',
-    'Hernia': 'Herni'
+// Model çıktısı için çeviriler (Multi-Label: 14 hastalık)
+const DISEASE_LABELS = {
+    'Atelectasis': { tr: 'Atelektazi', desc: 'Akciğerin bir bölümünün çökmesi' },
+    'Cardiomegaly': { tr: 'Kardiyomegali', desc: 'Kalp büyümesi' },
+    'Effusion': { tr: 'Plevral Efüzyon', desc: 'Akciğer zarları arasında sıvı' },
+    'Infiltration': { tr: 'İnfiltrasyon', desc: 'Akciğer dokusuna sıvı/hücre birikimi' },
+    'Mass': { tr: 'Kitle', desc: 'Akciğerde büyük lezyon' },
+    'Nodule': { tr: 'Nodül', desc: 'Akciğerde küçük yuvarlak lezyon' },
+    'Pneumonia': { tr: 'Pnömoni (Zatürre)', desc: 'Akciğer enfeksiyonu' },
+    'Pneumothorax': { tr: 'Pnömotoraks', desc: 'Akciğer ile göğüs duvarı arasında hava - ACİL!' },
+    'Consolidation': { tr: 'Konsolidasyon', desc: 'Akciğer dokusunun yoğunlaşması' },
+    'Edema': { tr: 'Pulmoner Ödem', desc: 'Akciğerlerde sıvı birikimi' },
+    'Emphysema': { tr: 'Amfizem', desc: 'Hava keseciklerinin hasarı (KOAH)' },
+    'Fibrosis': { tr: 'Fibrozis', desc: 'Akciğer dokusunun sertleşmesi' },
+    'Pleural_Thickening': { tr: 'Plevral Kalınlaşma', desc: 'Akciğer zarının kalınlaşması' },
+    'Hernia': { tr: 'Herni', desc: 'Diyafram fıtığı' },
+    'No Finding': { tr: 'Normal - Bulgu Yok', desc: 'Herhangi bir patoloji tespit edilmedi' }
 };
 
 const translateDiagnosis = (term) => {
     if (!term) return 'Bilgi Yok';
-    return DIAGNOSIS_TERMS[term] || term;
+    const disease = DISEASE_LABELS[term];
+    return disease ? disease.tr : term;
 };
 
-const getModelLabel = (label) => {
-    return MODEL_LABELS[label] || MODEL_LABELS['No Finding'];
+const getDiseaseInfo = (label) => {
+    return DISEASE_LABELS[label] || { tr: label, desc: '' };
 };
 
 const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName }) => {
@@ -111,7 +87,9 @@ const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName 
                 labelTr: aiAnalysis.labelTr,
                 probability: aiAnalysis.probability || 0,
                 confidence: aiAnalysis.confidence || 'Bilinmiyor',
-                isPathology: aiAnalysis.isPathology || false
+                isPathology: aiAnalysis.isPathology || false,
+                detectedDiseases: aiAnalysis.detectedDiseases || [],
+                diseaseCount: aiAnalysis.diseaseCount || 0
             },
             matches: matchList
         };
@@ -134,9 +112,9 @@ const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName 
         return 'Göğüs Röntgeni';
     };
 
-    // Model sonucu için bilgi al
-    const modelInfo = getModelLabel(aiDiagnosis.label);
-    const isPathology = aiDiagnosis.isPathology || aiDiagnosis.label === 'Mass|Nodule' || aiDiagnosis.label === 'Pathology';
+    // Multi-label sonuçları
+    const isPathology = aiDiagnosis.isPathology;
+    const detectedDiseases = aiDiagnosis.detectedDiseases || [];
 
     return (
         <div className="w-full h-full grid grid-cols-12 overflow-hidden">
@@ -155,21 +133,36 @@ const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName 
                     <p className="text-[var(--text-muted)] text-xs">{getFileType()}</p>
                 </div>
 
-                {/* AI Diagnosis Badge - Dürüst Model Sonucu */}
-                <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 backdrop-blur px-6 py-3 rounded-lg border shadow-2xl ${
+                {/* AI Diagnosis Badge - Multi-Label Model Sonucu */}
+                <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 backdrop-blur px-6 py-4 rounded-lg border shadow-2xl max-w-md ${
                     isPathology 
                         ? 'bg-red-900/90 border-red-500 shadow-red-500/20' 
                         : 'bg-green-900/90 border-green-500 shadow-green-500/20'
                 }`}>
                     <div className="text-center">
                         <span className={`font-bold text-lg ${isPathology ? 'text-red-200' : 'text-green-200'}`}>
-                            {isPathology ? '⚠️ Patoloji Tespit Edildi' : '✓ Normal - Bulgu Yok'}
+                            {isPathology 
+                                ? `⚠️ ${detectedDiseases.length} Patoloji Tespit Edildi` 
+                                : '✓ Normal - Bulgu Yok'}
                         </span>
-                        <div className="text-xs text-white/70 mt-1">
-                            {modelInfo.description}
-                        </div>
-                        <div className="text-xs text-white/50 mt-2 max-w-xs">
-                            ⓘ Bu model sadece ikili sınıflandırma yapar (normal/anormal). Kesin tanı için uzman değerlendirmesi gereklidir.
+                        
+                        {/* Tespit edilen hastalıklar listesi */}
+                        {isPathology && detectedDiseases.length > 0 && (
+                            <div className="mt-3 space-y-1 text-left">
+                                {detectedDiseases.slice(0, 3).map((disease, idx) => (
+                                    <div key={idx} className="flex items-center justify-between bg-black/30 px-3 py-1.5 rounded">
+                                        <span className="text-white text-sm">{disease.labelTr || disease.label}</span>
+                                        <span className="text-red-300 text-xs font-mono">%{(disease.probability * 100).toFixed(0)}</span>
+                                    </div>
+                                ))}
+                                {detectedDiseases.length > 3 && (
+                                    <p className="text-white/50 text-xs text-center">+{detectedDiseases.length - 3} diğer bulgu</p>
+                                )}
+                            </div>
+                        )}
+                        
+                        <div className="text-xs text-white/50 mt-3">
+                            ⓘ Bu model 14 farklı akciğer patolojisini tespit edebilir. Kesin tanı için uzman değerlendirmesi gereklidir.
                         </div>
                     </div>
                 </div>

@@ -1,20 +1,20 @@
 """
-AI Service - Multi-Label PyTorch Model Entegrasyonu
+AI Service - Multi-Label PyTorch ResNet50 Model Entegrasyonu
 X-Ray görüntülerini analiz eder ve 14 hastalığı tespit eder
 
 Bu servis yeni eğitilmiş multi-label modeli kullanır:
 - Model: ResNet50 (Multi-Label Classification)
 - Dataset: NIH Chest X-rays (112K görüntü)
 - Sınıflar: 14 hastalık + No Finding
-- AUC: 0.8347
+- Val AUC: 0.8347
 
 Pipeline:
-    Image → Resize (224x224) → Normalize → ResNet50 → Multi-Label Predictions + Embedding
+    Image → Resize (224x224) → Normalize → ResNet50 → 14 Sigmoid Outputs + Embedding
 """
 
 import os
 import logging
-from typing import Optional, Dict, List, Tuple
+from typing import Optional, Tuple, Dict, List
 from pathlib import Path
 
 import numpy as np
@@ -70,7 +70,7 @@ DISEASE_DESCRIPTIONS = {
     "Mass": "Akciğerde büyük lezyon. İleri tetkik gerektirir.",
     "Nodule": "Akciğerde küçük yuvarlak lezyon. Takip gerektirebilir.",
     "Pneumonia": "Akciğer enfeksiyonu, tedavi gerektirir.",
-    "Pneumothorax": "Akciğer ile göğüs duvarı arasında hava birikimi. ACİL müdahale gerektirebilir.",
+    "Pneumothorax": "Akciğer ile göğüs duvarı arasında hava birikimi. ACİL müdahale gerektirebilir!",
     "Consolidation": "Akciğer dokusunun yoğunlaşması, genellikle zatürre belirtisi.",
     "Edema": "Akciğerlerde sıvı birikimi.",
     "Emphysema": "Akciğer hava keseciklerinin hasar görmesi, KOAH'ın bir türü.",
@@ -107,7 +107,7 @@ class ChestXrayMultiLabelModel(nn.Module):
             nn.Linear(512, num_classes)
         )
         
-        # Embedding için hook
+        # Embedding hook
         self.embedding = None
         self._register_hook()
     
@@ -126,25 +126,25 @@ class ChestXrayMultiLabelModel(nn.Module):
         return self.embedding
 
 
-class RealAIService:
+class MultiLabelAIService:
     """
-    Multi-label model ile AI analiz servisi.
+    Multi-label PyTorch model ile AI analiz servisi.
     14 hastalığı ayrı ayrı tespit eder.
     """
     
     INPUT_SIZE = (224, 224)
-    DEFAULT_THRESHOLD = 0.3  # Hastalık tespit eşiği (düşük tutuyoruz hassasiyet için)
+    THRESHOLD = 0.5  # Varsayılan eşik
     
     def __init__(self):
         self.model: Optional[ChestXrayMultiLabelModel] = None
         self.model_loaded = False
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.vector_dimension = 2048  # ResNet50 avgpool çıktısı
+        self.vector_dimension = 2048
         
-        # Model yolu
+        # Model yolu - yeni multi-label model
         self.model_path = self._find_model_path()
         
-        # Görüntü dönüşümleri
+        # Transform
         self.transform = transforms.Compose([
             transforms.Resize(self.INPUT_SIZE),
             transforms.ToTensor(),
@@ -154,7 +154,7 @@ class RealAIService:
         # Modeli yükle
         self._load_model()
         
-        logger.info(f"AI Service başlatıldı - Device: {self.device}, Model: {'Loaded' if self.model_loaded else 'Not Found'}")
+        logger.info(f"MultiLabel AI Service başlatıldı - Device: {self.device}, Model: {'Loaded' if self.model_loaded else 'Not Found'}")
     
     def _find_model_path(self) -> Optional[Path]:
         """Model dosyasını bul."""
@@ -162,10 +162,9 @@ class RealAIService:
             # Yeni multi-label model (öncelikli)
             Path(__file__).parent.parent.parent.parent / "model" / "model-2.pth",
             Path("/Users/wazder/Documents/GitHub/dotshub-h-w-health/model/model-2.pth"),
-            # Fallback
+            # Fallback - best_model.pth
             Path(__file__).parent.parent.parent.parent / "model" / "best_model.pth",
-            Path("model/model-2.pth"),
-            Path("../model/model-2.pth"),
+            Path("/Users/wazder/Documents/GitHub/dotshub-h-w-health/model/best_model.pth"),
         ]
         
         for path in possible_paths:
@@ -186,18 +185,17 @@ class RealAIService:
             # Model oluştur
             self.model = ChestXrayMultiLabelModel(num_classes=NUM_CLASSES)
             
-            # Ağırlıkları yükle
+            # Checkpoint yükle
             checkpoint = torch.load(self.model_path, map_location=self.device, weights_only=False)
             
-            # Checkpoint formatını kontrol et
             if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
-                state_dict = checkpoint['model_state_dict']
-                logger.info(f"Checkpoint yüklendi - Epoch: {checkpoint.get('epoch', '?')}, "
-                           f"Best AUC: {checkpoint.get('best_auc', 0):.4f}")
+                self.model.load_state_dict(checkpoint['model_state_dict'])
+                best_auc = checkpoint.get('best_auc', 'N/A')
+                epoch = checkpoint.get('epoch', 'N/A')
+                logger.info(f"Checkpoint yüklendi - Epoch: {epoch}, Best AUC: {best_auc}")
             else:
-                state_dict = checkpoint
+                self.model.load_state_dict(checkpoint)
             
-            self.model.load_state_dict(state_dict)
             self.model.to(self.device)
             self.model.eval()
             
@@ -210,16 +208,17 @@ class RealAIService:
             self.model_loaded = False
             return False
     
-    def analyze_image(self, image_bytes: bytes, filename: Optional[str] = None) -> Dict:
+    def analyze_image(self, image_bytes: bytes, filename: Optional[str] = None, threshold: float = 0.5) -> Dict:
         """
-        Görüntüyü analiz eder ve 14 hastalık için tahmin yapar.
+        Görüntüyü analiz eder ve 14 hastalık için olasılıkları döndürür.
         
         Args:
             image_bytes: Görüntü dosyasının byte içeriği
             filename: Opsiyonel dosya adı
+            threshold: Hastalık tespit eşiği (0-1)
             
         Returns:
-            dict: Analiz sonucu (tespit edilen hastalıklar, olasılıklar, embedding)
+            dict: Analiz sonucu
         """
         if not self.model_loaded:
             logger.error("Model yüklenmemiş!")
@@ -258,7 +257,7 @@ class RealAIService:
             else:
                 embedding_np = np.zeros(self.vector_dimension, dtype=np.float32)
             
-            # 6. Hastalıkları tespit et
+            # 6. Tespit edilen hastalıklar
             detected_diseases = []
             all_predictions = {}
             
@@ -266,7 +265,7 @@ class RealAIService:
                 prob = float(probs[i])
                 all_predictions[label] = round(prob, 4)
                 
-                if prob >= self.DEFAULT_THRESHOLD:
+                if prob >= threshold:
                     detected_diseases.append({
                         "label": label,
                         "label_tr": LABEL_TR.get(label, label),
@@ -283,34 +282,42 @@ class RealAIService:
                 primary_label_tr = "Normal - Bulgu Yok"
                 is_pathology = False
                 confidence = "Yüksek"
-                max_prob = 1.0 - max(probs)  # Normal olma olasılığı
             else:
                 primary_label = detected_diseases[0]['label']
                 primary_label_tr = detected_diseases[0]['label_tr']
                 is_pathology = True
-                max_prob = detected_diseases[0]['probability']
                 
-                if max_prob >= 0.7:
+                # Güven seviyesi
+                max_prob = detected_diseases[0]['probability']
+                if max_prob >= 0.85:
                     confidence = "Yüksek"
-                elif max_prob >= 0.5:
+                elif max_prob >= 0.65:
                     confidence = "Orta"
                 else:
                     confidence = "Düşük"
             
+            # Eski API uyumluluğu için probability değeri
+            # En yüksek hastalık olasılığı veya (1 - max) normal için
+            max_disease_prob = max(probs) if len(probs) > 0 else 0
+            
             result = {
                 "label": primary_label,
                 "label_tr": primary_label_tr,
-                "probability": round(max_prob, 4),
+                "probability": round(float(max_disease_prob), 4),
                 "confidence": confidence,
+                "embedding": embedding_np.tolist(),
                 "is_pathology": is_pathology,
                 "detected_diseases": detected_diseases,
                 "disease_count": len(detected_diseases),
-                "all_predictions": all_predictions,
-                "embedding": embedding_np.tolist()
+                "all_predictions": all_predictions
             }
             
-            logger.info(f"AI analizi tamamlandı - {len(detected_diseases)} hastalık tespit edildi: "
-                       f"{[d['label'] for d in detected_diseases[:3]]}")
+            # Log
+            if is_pathology:
+                diseases_str = ", ".join([d['label_tr'] for d in detected_diseases[:3]])
+                logger.info(f"AI analizi tamamlandı - {len(detected_diseases)} hastalık tespit edildi: {diseases_str}")
+            else:
+                logger.info(f"AI analizi tamamlandı - Normal (Bulgu Yok)")
             
             return result
             
@@ -321,39 +328,63 @@ class RealAIService:
     def _bytes_to_pil(self, image_bytes: bytes, filename: Optional[str] = None) -> Optional[Image.Image]:
         """Byte verisini PIL Image'a dönüştür."""
         try:
-            # Önce doğrudan PIL ile dene
             pil_image = Image.open(BytesIO(image_bytes))
             return pil_image
         except Exception as e:
-            logger.warning(f"Doğrudan PIL açılamadı: {e}")
+            logger.warning(f"Direct PIL failed: {e}, trying image_converter...")
         
         try:
-            # image_converter ile dene
-            converted = image_converter.convert_to_png(image_bytes, filename)
-            if converted:
-                return Image.open(BytesIO(converted))
+            np_array = image_converter.convert_to_numpy(image_bytes, self.INPUT_SIZE, filename)
+            if np_array is not None:
+                if np_array.ndim == 3 and np_array.shape[2] == 1:
+                    np_array = np_array.squeeze(2)
+                if np_array.max() <= 1.0:
+                    np_array = (np_array * 255).astype(np.uint8)
+                return Image.fromarray(np_array)
         except Exception as e:
-            logger.warning(f"image_converter ile açılamadı: {e}")
+            logger.error(f"Image conversion failed: {e}")
         
         return None
     
-    def _get_error_result(self, error_message: str) -> Dict:
+    def _get_error_result(self, error_msg: str = "Unknown error") -> Dict:
         """Hata durumunda döndürülecek sonuç."""
         return {
             "label": "Error",
-            "label_tr": "Hata",
+            "label_tr": f"Hata: {error_msg}",
             "probability": 0.0,
             "confidence": "Yok",
+            "embedding": [0.0] * self.vector_dimension,
             "is_pathology": False,
             "detected_diseases": [],
             "disease_count": 0,
             "all_predictions": {},
-            "embedding": [],
-            "error": error_message
+            "error": error_msg
+        }
+    
+    def get_disease_info(self, label: str) -> Dict:
+        """Hastalık hakkında bilgi döndür."""
+        return {
+            "label": label,
+            "label_tr": LABEL_TR.get(label, label),
+            "description": DISEASE_DESCRIPTIONS.get(label, "Bilgi mevcut değil.")
+        }
+    
+    def get_status(self) -> Dict:
+        """Servis durumunu döndür."""
+        return {
+            "model_loaded": self.model_loaded,
+            "model_path": str(self.model_path) if self.model_path else None,
+            "device": str(self.device),
+            "num_classes": NUM_CLASSES,
+            "disease_labels": DISEASE_LABELS,
+            "model_type": "multi-label"
         }
     
     def get_embedding_for_image(self, image_path: str) -> Optional[np.ndarray]:
-        """Bir görüntü dosyasından embedding çıkar."""
+        """
+        Bir görüntü dosyasından embedding çıkar.
+        Vektör veritabanı oluşturmak için kullanılır.
+        """
         try:
             with open(image_path, 'rb') as f:
                 image_bytes = f.read()
@@ -375,16 +406,14 @@ class RealAIService:
             "name": "ChestXray-ResNet50-MultiLabel",
             "version": "2.0.0",
             "dataset": "NIH ChestX-ray14",
-            "task": "Multi-Label Classification (14 hastalık)",
+            "task": "Multi-Label Classification (14 diseases)",
             "num_classes": NUM_CLASSES,
             "classes": DISEASE_LABELS,
             "input_size": self.INPUT_SIZE,
             "vector_dimension": self.vector_dimension,
             "device": str(self.device),
             "status": "loaded" if self.model_loaded else "not_loaded",
-            "model_path": str(self.model_path) if self.model_path else None,
-            "threshold": self.DEFAULT_THRESHOLD,
-            "auc": 0.8347
+            "model_path": str(self.model_path) if self.model_path else None
         }
     
     def check_health(self) -> Tuple[bool, str]:
@@ -392,7 +421,7 @@ class RealAIService:
         converter_ok, converter_msg = image_converter.check_health()
         
         if self.model_loaded and converter_ok:
-            return True, f"AI servisi çalışıyor (Multi-Label Model) - Device: {self.device}"
+            return True, f"Multi-Label AI servisi çalışıyor (14 hastalık) - Device: {self.device}"
         elif not self.model_loaded:
             return False, f"Model yüklenemedi: {self.model_path}"
         elif not converter_ok:
@@ -401,4 +430,4 @@ class RealAIService:
 
 
 # Singleton instance
-ai_service = RealAIService()
+ai_service = MultiLabelAIService()

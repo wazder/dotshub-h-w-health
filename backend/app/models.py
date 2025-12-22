@@ -10,11 +10,23 @@ from datetime import datetime
 
 # ==================== AI Analiz Modelleri ====================
 
+class DetectedDisease(BaseModel):
+    """Tespit edilen hastalık detayı"""
+    label: str = Field(..., description="Hastalık etiketi (İngilizce)")
+    label_tr: str = Field(..., description="Hastalık etiketi (Türkçe)")
+    probability: float = Field(..., ge=0.0, le=1.0, description="Olasılık")
+    description: str = Field("", description="Hastalık açıklaması")
+
+
 class AIAnalysisResult(BaseModel):
-    """AI motorunun döndürdüğü analiz sonucu"""
-    probability: float = Field(..., ge=0.0, le=1.0, description="Tanı olasılığı (0-1 arası)")
-    label: str = Field(..., description="Tespit edilen durum etiketi")
+    """AI motorunun döndürdüğü analiz sonucu - Multi-Label Model"""
+    probability: float = Field(..., ge=0.0, le=1.0, description="En yüksek olasılık")
+    label: str = Field(..., description="Birincil tespit (İngilizce)")
+    label_tr: str = Field("", description="Birincil tespit (Türkçe)")
     confidence: str = Field(..., description="Güven seviyesi: Düşük, Orta, Yüksek")
+    is_pathology: bool = Field(False, description="Patoloji tespit edildi mi")
+    detected_diseases: List[DetectedDisease] = Field(default=[], description="Tespit edilen hastalıklar")
+    disease_count: int = Field(0, description="Tespit edilen hastalık sayısı")
     embedding: List[float] = Field(..., description="Görüntü vektör gömülümü")
 
 
