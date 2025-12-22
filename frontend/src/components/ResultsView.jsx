@@ -11,7 +11,7 @@ const MOCK_MATCHES = Array.from({ length: 12 }, (_, i) => ({
     imgUrl: null // In a real app, this would be a URL. We'll use a placeholder.
 }));
 
-const ResultsView = ({ image }) => {
+const ResultsView = ({ image, onSelectPatient }) => {
     const [visibleCount, setVisibleCount] = useState(3);
 
     const handleExpand = () => {
@@ -54,7 +54,11 @@ const ResultsView = ({ image }) => {
 
                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
                     {MOCK_MATCHES.slice(0, visibleCount).map((match, idx) => (
-                        <div key={match.id} className="card p-4 flex gap-4 hover:bg-[var(--bg-card-hover)] transition group border border-[var(--border)]">
+                        <div
+                            key={match.id}
+                            onClick={() => onSelectPatient && onSelectPatient(match)}
+                            className="card p-4 flex gap-4 hover:bg-[var(--bg-card-hover)] transition group border border-[var(--border)] cursor-pointer"
+                        >
                             {/* Match Image Placeholder */}
                             <div className="w-24 h-24 bg-[var(--bg-dark)] rounded overflow-hidden relative shrink-0">
                                 <div className="absolute inset-0 flex items-center justify-center text-[var(--text-muted)] text-xs">
@@ -77,8 +81,8 @@ const ResultsView = ({ image }) => {
                                 <div className="flex items-center gap-4 text-xs text-[var(--text-muted)]">
                                     <span className="bg-[var(--bg-dark)] px-2 py-1 rounded">Age: {match.age}</span>
                                     <span className={`px-2 py-1 rounded border ${match.outcome === 'Recurrence' ? 'border-red-900 text-red-300 bg-red-900/10' :
-                                            match.outcome === 'Remission' ? 'border-green-900 text-green-300 bg-green-900/10' :
-                                                'border-yellow-900 text-yellow-300 bg-yellow-900/10'
+                                        match.outcome === 'Remission' ? 'border-green-900 text-green-300 bg-green-900/10' :
+                                            'border-yellow-900 text-yellow-300 bg-yellow-900/10'
                                         }`}>
                                         {match.outcome}
                                     </span>

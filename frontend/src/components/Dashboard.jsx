@@ -3,7 +3,7 @@ import UploadZone from './UploadZone';
 import AnalysisView from './AnalysisView';
 import ResultsView from './ResultsView';
 
-const Dashboard = () => {
+const Dashboard = ({ onSelectPatient }) => {
     const [step, setStep] = useState('upload'); // upload, analyzing, results
     const [currentImage, setCurrentImage] = useState(null);
 
@@ -54,7 +54,7 @@ const Dashboard = () => {
                 <div className="flex-1 bg-[var(--bg-card)] border border-[var(--border)] rounded-xl relative overflow-hidden shadow-2xl">
                     {step === 'upload' && <UploadZone onUpload={handleUpload} />}
                     {step === 'analyzing' && <AnalysisView image={currentImage} onComplete={handleAnalysisComplete} />}
-                    {step === 'results' && <ResultsView image={currentImage} />}
+                    {step === 'results' && currentImage && <ResultsView image={currentImage} onSelectPatient={onSelectPatient} />}
                 </div>
             </div>
         </div>
