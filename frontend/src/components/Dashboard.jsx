@@ -2,15 +2,36 @@ import React, { useState } from 'react';
 import UploadZone from './UploadZone';
 import AnalysisView from './AnalysisView';
 import ResultsView from './ResultsView';
+import api from '../services/api';
+import { useAnalysis } from '../hooks/useApi';
 
 const Dashboard = ({ onSelectPatient }) => {
     const [step, setStep] = useState('upload'); // upload, analyzing, results
     const [currentImage, setCurrentImage] = useState(null);
+    const [currentFile, setCurrentFile] = useState(null);
+    
+    // API entegrasyonu için hook
+    const analysis = useAnalysis();
 
-    const handleUpload = (file) => {
-        // Mock upload handling
+    const handleUpload = async (file) => {
+        // Preview için local URL oluştur
         setCurrentImage(URL.createObjectURL(file));
+        setCurrentFile(file);
         setStep('analyzing');
+        
+        // Gerçek API çağrısı
+        const result = await analysis.analyze(file, api.analyzeImage);
+        
+        if (result) {
+            // Başarılı analiz - results ekranına geç
+            setStep('results');
+        } else if (analysis.isError) {
+            // Hata durumunda upload ekranına dön
+            console.error('Analiz hatası:', analysis.error);
+            // Kullanıcıya hata göster (opsiyonel olarak alert yerine toast kullanılabilir)
+            alert(`Analiz hatası: ${analysis.error?.message || 'Bilinmeyen hata'}`);
+            handleReset();
+        }
     };
 
     const handleAnalysisComplete = () => {
@@ -20,6 +41,8 @@ const Dashboard = ({ onSelectPatient }) => {
     const handleReset = () => {
         setStep('upload');
         setCurrentImage(null);
+        setCurrentFile(null);
+        analysis.reset();
     };
 
     return (
@@ -36,7 +59,7 @@ const Dashboard = ({ onSelectPatient }) => {
                         </h1>
                         <p className="text-sm text-[var(--text-muted)]">
                             {step === 'upload' && 'Upload DICOM/MRI data to begin triage.'}
-                            {step === 'analyzing' && 'Extracting features and searching vector database...'}
+                            {step === 'analyzing' && (analysis.statusMessage || 'Extracting features and searching vector database...')}
                             {step === 'results' && 'Matched similar cases based on latent space embedding.'}
                         </p>
                     </div>
@@ -53,8 +76,22 @@ const Dashboard = ({ onSelectPatient }) => {
                 {/* Main Viewport */}
                 <div className="flex-1 bg-[var(--bg-card)] border border-[var(--border)] rounded-xl relative overflow-hidden shadow-2xl">
                     {step === 'upload' && <UploadZone onUpload={handleUpload} />}
-                    {step === 'analyzing' && <AnalysisView image={currentImage} onComplete={handleAnalysisComplete} />}
-                    {step === 'results' && currentImage && <ResultsView image={currentImage} onSelectPatient={onSelectPatient} />}
+                    {step === 'analyzing' && (
+                        <AnalysisView 
+                            image={currentImage} 
+                            onComplete={handleAnalysisComplete}
+                            progress={analysis.progress}
+                            status={analysis.statusMessage}
+                            isRealApi={true}
+                        />
+                    )}
+                    {step === 'results' && currentImage && (
+                        <ResultsView 
+                            image={currentImage} 
+                            onSelectPatient={onSelectPatient}
+                            analysisResult={analysis.result}
+                        />
+                    )}
                 </div>
             </div>
         </div>

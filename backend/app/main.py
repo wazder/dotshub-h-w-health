@@ -14,13 +14,15 @@ API Endpoints:
     GET /api/patients/{id} - Hasta bilgisi sorgulama
 """
 
+import os
 import logging
 from datetime import datetime
 from typing import Optional
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from dotenv import load_dotenv
 
 from .models import (
     AnalysisResponse,
@@ -32,9 +34,17 @@ from .models import (
     PatientHistory
 )
 from .services.pacs_service import pacs_service
-from .services.ai_service import ai_service
-from .services.search_service import search_service
+
+# GERÇEK SERVİSLER - Mock değil!
+from .services.ai_service_real import ai_service
+from .services.dataset_service import dataset_service
+from .services.vector_search_service import vector_search_service as search_service
+
+# Data service artık dataset_service'i kullanıyor
 from .services.data_service import data_service
+
+# .env dosyasını yükle
+load_dotenv()
 
 # Logging konfigürasyonu
 logging.basicConfig(
@@ -42,6 +52,10 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# CORS için izin verilen origin'ler
+# Production'da bu liste kısıtlanmalı
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173").split(",")
 
 # FastAPI uygulaması
 app = FastAPI(
@@ -74,13 +88,15 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# CORS middleware
+# CORS middleware - Güvenli yapılandırma
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Prodüksiyonda kısıtlanmalı
+    allow_origins=ALLOWED_ORIGINS,  # Production'da kısıtlanmış origin listesi
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
+    expose_headers=["Content-Length", "X-Request-ID"],
+    max_age=600  # Preflight cache süresi (saniye)
 )
 
 
@@ -142,42 +158,49 @@ async def analyze_image(
             embedding=ai_result["embedding"]
         )
         
-        # 4. Vektör Araması
-        logger.info("Adım 3/4: Benzer vaka aranıyor...")
+        # 4. Vektör Araması - Birden fazla benzer vaka
+        logger.info("Adım 3/4: Benzer vakalar aranıyor...")
         similar_results = search_service.search_similar(
             query_vector=ai_result["embedding"],
-            top_k=1
+            top_k=5  # 5 benzer vaka getir
         )
         
-        # 5. Hasta Bilgisi Getir
-        similar_case: Optional[SimilarCase] = None
+        # 5. Benzer Vakaların Bilgilerini Getir
+        similar_cases: list = []
         if similar_results:
-            similar_patient_id, similarity_score = similar_results[0]
-            logger.info(f"Adım 4/4: Hasta bilgisi getiriliyor - ID: {similar_patient_id}")
-            
-            patient_data = data_service.get_patient_history(similar_patient_id)
-            
-            if patient_data:
-                patient_history = PatientHistory(
-                    patient_id=patient_data.get("patient_id", similar_patient_id),
-                    age=patient_data.get("age"),
-                    gender=patient_data.get("gender"),
-                    diagnosis_date=patient_data.get("diagnosis_date"),
-                    diagnosis=patient_data.get("diagnosis"),
-                    treatment=patient_data.get("treatment"),
-                    outcome=patient_data.get("outcome"),
-                    history=patient_data.get("history", ""),
-                    notes=patient_data.get("notes")
-                )
+            for similar_patient_id, similar_image_id, similarity_score in similar_results:
+                logger.info(f"Hasta bilgisi getiriliyor - ID: {similar_patient_id}")
                 
-                similar_case = SimilarCase(
-                    patient_id=similar_patient_id,
-                    similarity_score=similarity_score,
-                    history=patient_history
-                )
+                # Dataset'ten hasta bilgisi al
+                patient_info = dataset_service.get_patient_info(similar_patient_id)
+                
+                if patient_info:
+                    patient_history = PatientHistory(
+                        patient_id=patient_info.get("patient_id", similar_patient_id),
+                        age=patient_info.get("age"),
+                        gender=patient_info.get("gender"),
+                        diagnosis_date=patient_info.get("diagnosis_date"),
+                        diagnosis=patient_info.get("diagnosis"),
+                        treatment=patient_info.get("treatment"),
+                        outcome=patient_info.get("outcome"),
+                        history=patient_info.get("history", ""),
+                        notes=f"Görüntü: {similar_image_id}"
+                    )
+                    
+                    similar_case = SimilarCase(
+                        patient_id=similar_patient_id,
+                        similarity_score=similarity_score,
+                        image_id=similar_image_id,
+                        image_url=f"/api/images/{similar_image_id}",
+                        history=patient_history
+                    )
+                    similar_cases.append(similar_case)
+        
+        # İlk benzer vaka (geriye uyumluluk için)
+        first_similar_case = similar_cases[0] if similar_cases else None
         
         # 6. Özet Oluştur
-        summary = _generate_summary(ai_analysis, similar_case)
+        summary = _generate_summary(ai_analysis, first_similar_case, len(similar_cases))
         
         # 7. Response Oluştur
         response = AnalysisResponse(
@@ -185,7 +208,8 @@ async def analyze_image(
             timestamp=datetime.now(),
             pacs_status=pacs_status,
             ai_analysis=ai_analysis,
-            similar_case=similar_case,
+            similar_cases=similar_cases,
+            similar_case=first_similar_case,  # Geriye uyumluluk
             summary=summary
         )
         
@@ -202,7 +226,7 @@ async def analyze_image(
         )
 
 
-def _generate_summary(ai_analysis: AIAnalysisResult, similar_case: Optional[SimilarCase]) -> str:
+def _generate_summary(ai_analysis: AIAnalysisResult, similar_case: Optional[SimilarCase], total_matches: int = 0) -> str:
     """
     Analiz özeti oluşturur.
     """
@@ -211,11 +235,13 @@ def _generate_summary(ai_analysis: AIAnalysisResult, similar_case: Optional[Simi
         f"📊 Tespit: {ai_analysis.label} ({ai_analysis.probability:.0%} olasılık, {ai_analysis.confidence} güven)"
     ]
     
-    if similar_case:
+    if similar_case and total_matches > 0:
         parts.append(
             f"📁 Benzer Vaka: Hasta {similar_case.patient_id} "
             f"({similar_case.similarity_score:.0%} benzerlik)"
         )
+        if total_matches > 1:
+            parts.append(f"🔍 Toplam {total_matches} benzer vaka bulundu")
         if similar_case.history.treatment:
             parts.append(f"💊 Uygulanan Tedavi: {similar_case.history.treatment}")
         if similar_case.history.outcome:
@@ -224,6 +250,33 @@ def _generate_summary(ai_analysis: AIAnalysisResult, similar_case: Optional[Simi
         parts.append("⚠️ Benzer vaka bulunamadı.")
     
     return " | ".join(parts)
+
+
+# ==================== Görüntü Endpoints ====================
+
+@app.get(
+    "/api/images/{image_id}",
+    summary="X-Ray Görüntüsü Getir",
+    description="Belirtilen görüntü ID'sine ait X-ray görüntüsünü döndürür."
+)
+async def get_image(image_id: str):
+    """
+    NIH Dataset'ten görüntü dosyasını serve eder.
+    """
+    # Dataset service'den görüntü yolunu al
+    image_path = dataset_service.get_image_path(image_id)
+    
+    if image_path is None or not image_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Görüntü bulunamadı: {image_id}"
+        )
+    
+    return FileResponse(
+        path=str(image_path),
+        media_type="image/png",
+        filename=image_id
+    )
 
 
 # ==================== Yardımcı Endpoints ====================
@@ -263,7 +316,43 @@ async def health_check():
 async def get_patient(patient_id: str):
     """
     Hasta bilgisi endpoint'i.
+    NIH dataset'ten ve sentetik verilerden hasta bilgisi döner.
     """
+    # Önce dataset_service'den dene
+    patient = dataset_service.get_patient_info(patient_id)
+    
+    if patient:
+        # Görüntü URL'lerini ekle
+        images = patient.get('images', [])
+        scans = []
+        for idx, image_id in enumerate(images[:6]):  # Max 6 tarama
+            image_info = dataset_service.get_image_info(image_id)
+            if image_info:
+                scans.append({
+                    'id': image_id,
+                    'date': f"2023-{(idx % 12) + 1:02d}-{15 - idx}",
+                    'type': image_info.get('view_position', 'PA'),
+                    'status': 'Abnormal' if image_info.get('has_pathology') else 'Normal',
+                    'imageUrl': f"/api/images/{image_id}",
+                    'findings': image_info.get('finding_labels', '')
+                })
+        
+        return {
+            "success": True,
+            "patient": {
+                **patient,
+                "scans": scans,
+                "diagnosisHistory": [
+                    {
+                        "date": "2023-11-16",
+                        "diagnosis": patient.get('diagnosis', 'Bilinmiyor'),
+                        "physician": "Dr. AI System"
+                    }
+                ]
+            }
+        }
+    
+    # Sonra data_service'den dene
     patient = data_service.get_patient_history(patient_id)
     
     if patient:
@@ -314,23 +403,44 @@ async def root():
 async def startup_event():
     """
     Uygulama başlangıcında çalışır.
+    Gerçek servisleri başlatır ve vektör index'ini oluşturur.
     """
     logger.info("=" * 50)
     logger.info("🏥 Tıbbi X-Ray Analiz API Başlatılıyor...")
+    logger.info("🔬 GERÇEK MOD - PyTorch AI Model Aktif")
     logger.info("=" * 50)
     
-    # Servis durumlarını logla
-    pacs_ok, pacs_msg = pacs_service.check_connection()
-    ai_ok, ai_msg = ai_service.check_health()
-    search_ok, search_msg = search_service.check_health()
-    data_ok, data_msg = data_service.check_health()
+    # Dataset servisini başlat
+    logger.info("📂 NIH Chest X-ray Dataset yükleniyor...")
+    dataset_service.load()
+    dataset_ok, dataset_msg = dataset_service.check_health()
+    logger.info(f"Dataset Servisi: {dataset_msg}")
     
-    logger.info(f"PACS Servisi: {pacs_msg}")
+    # Data service'i dataset_service ile bağla
+    data_service.set_dataset_service(dataset_service)
+    
+    # AI servisini başlat
+    logger.info("🧠 AI Model (ResNet50) yükleniyor...")
+    ai_ok, ai_msg = ai_service.check_health()
     logger.info(f"AI Servisi: {ai_msg}")
+    
+    # Vektör index'ini başlat (AI ve Dataset gerekli)
+    # 200 farklı patolojik görüntüden embedding çıkar
+    logger.info("🔍 Vektör index'i oluşturuluyor...")
+    search_service.initialize(dataset_service, ai_service, sample_size=200)
+    search_ok, search_msg = search_service.check_health()
     logger.info(f"Vektör Arama: {search_msg}")
+    
+    # Diğer servisler
+    pacs_ok, pacs_msg = pacs_service.check_connection()
+    logger.info(f"PACS Servisi: {pacs_msg}")
+    
+    data_ok, data_msg = data_service.check_health()
     logger.info(f"Veri Servisi: {data_msg}")
+    
     logger.info("=" * 50)
     logger.info("✅ API hazır! Docs: http://localhost:8000/docs")
+    logger.info("💡 Frontend: http://localhost:5173")
     logger.info("=" * 50)
 
 

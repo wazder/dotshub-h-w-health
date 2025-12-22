@@ -44,6 +44,8 @@ class SimilarCase(BaseModel):
     """Benzer vaka bilgisi"""
     patient_id: str = Field(..., description="Benzer hasta ID")
     similarity_score: float = Field(..., ge=0.0, le=1.0, description="Benzerlik skoru")
+    image_id: Optional[str] = Field(None, description="Benzer görüntü ID")
+    image_url: Optional[str] = Field(None, description="Görüntü URL'i")
     history: PatientHistory = Field(..., description="Hasta geçmişi")
 
 
@@ -71,8 +73,11 @@ class AnalysisResponse(BaseModel):
     # AI analiz sonuçları
     ai_analysis: AIAnalysisResult = Field(..., description="AI analiz sonuçları")
     
-    # Benzer vaka
-    similar_case: Optional[SimilarCase] = Field(None, description="Bulunan benzer vaka")
+    # Benzer vakalar (birden fazla)
+    similar_cases: List[SimilarCase] = Field(default=[], description="Bulunan benzer vakalar")
+    
+    # Geriye uyumluluk için (deprecated)
+    similar_case: Optional[SimilarCase] = Field(None, description="[Deprecated] İlk benzer vaka")
     
     # Özet
     summary: str = Field(..., description="Analiz özeti")

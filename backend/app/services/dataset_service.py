@@ -1,0 +1,280 @@
+"""
+Dataset Service - NIH Chest X-ray Dataset Yönetimi
+CSV'den hasta ve görüntü verisi okur, vektör veritabanı oluşturur.
+"""
+
+import os
+import csv
+import json
+import random
+import logging
+from typing import Optional, Dict, List, Tuple
+from pathlib import Path
+from collections import defaultdict
+
+import numpy as np
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+
+class DatasetService:
+    """
+    NIH Chest X-ray dataset yönetim servisi.
+    CSV dosyasından hasta ve görüntü bilgilerini okur.
+    """
+    
+    def __init__(self):
+        self.data_path = self._find_data_path()
+        self.csv_path = self.data_path / "archive" / "Data_Entry_2017.csv" if self.data_path else None
+        self.images_path = self.data_path / "archive" / "images-224" / "images-224" if self.data_path else None
+        
+        # Cache'ler
+        self._patient_cache: Dict[str, Dict] = {}
+        self._image_cache: Dict[str, Dict] = {}
+        self._pathology_images: List[str] = []  # Mass veya Nodule içeren görüntüler
+        self._loaded = False
+        
+        logger.info("Dataset Service başlatıldı - load() ile veri yüklemesi yapılacak")
+    
+    def load(self) -> bool:
+        """Dataset'i yükle. Startup'da çağrılır."""
+        if self._loaded:
+            return True
+        
+        if self._load_dataset():
+            self._loaded = True
+            logger.info(f"Dataset yüklendi: {len(self._patient_cache)} hasta, {len(self._image_cache)} görüntü")
+            return True
+        return False
+    
+    def _find_data_path(self) -> Optional[Path]:
+        """Data klasörünü bul."""
+        possible_paths = [
+            Path(__file__).parent.parent.parent.parent / "data",
+            Path("/Users/wazder/Documents/GitHub/dotshub-h-w-health/data"),
+            Path("data"),
+            Path("../data"),
+        ]
+        
+        for path in possible_paths:
+            if path.exists() and (path / "archive" / "Data_Entry_2017.csv").exists():
+                logger.info(f"Data klasörü bulundu: {path}")
+                return path
+        
+        logger.warning("Data klasörü bulunamadı!")
+        return None
+    
+    def _load_dataset(self) -> bool:
+        """CSV dosyasından dataset'i yükle."""
+        if self.csv_path is None or not self.csv_path.exists():
+            logger.error(f"CSV dosyası bulunamadı: {self.csv_path}")
+            return False
+        
+        try:
+            patient_images = defaultdict(list)
+            
+            with open(self.csv_path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                
+                for row in reader:
+                    image_id = row.get('Image Index', '').strip()
+                    patient_id = row.get('Patient ID', '').strip()
+                    finding_labels = row.get('Finding Labels', '').strip()
+                    age_str = row.get('Patient Age', '').strip()
+                    gender = row.get('Patient Gender', '').strip()
+                    view_pos = row.get('View Position', '').strip()
+                    
+                    # Yaşı parse et (örn: "058Y" -> 58)
+                    age = None
+                    if age_str and age_str.endswith('Y'):
+                        try:
+                            age = int(age_str[:-1])
+                        except ValueError:
+                            pass
+                    
+                    # Görüntü bilgisi
+                    image_info = {
+                        'image_id': image_id,
+                        'patient_id': patient_id,
+                        'finding_labels': finding_labels,
+                        'age': age,
+                        'gender': 'Erkek' if gender == 'M' else 'Kadın' if gender == 'F' else gender,
+                        'view_position': view_pos,
+                        'has_pathology': 'Mass' in finding_labels or 'Nodule' in finding_labels
+                    }
+                    
+                    self._image_cache[image_id] = image_info
+                    patient_images[patient_id].append(image_info)
+                    
+                    # Patolojik görüntüleri ayrı tut
+                    if image_info['has_pathology']:
+                        self._pathology_images.append(image_id)
+            
+            # Hasta bilgilerini oluştur
+            for patient_id, images in patient_images.items():
+                # En son görüntüden bilgi al
+                latest = images[-1]
+                
+                # Tüm tanıları topla
+                all_findings = set()
+                for img in images:
+                    for finding in img['finding_labels'].split('|'):
+                        finding = finding.strip()
+                        if finding:
+                            all_findings.add(finding)
+                
+                # Ana tanıyı belirle
+                primary_diagnosis = self._determine_primary_diagnosis(all_findings)
+                
+                self._patient_cache[patient_id] = {
+                    'patient_id': patient_id,
+                    'age': latest['age'],
+                    'gender': latest['gender'],
+                    'diagnosis': primary_diagnosis,
+                    'all_findings': list(all_findings),
+                    'image_count': len(images),
+                    'images': [img['image_id'] for img in images],
+                    'has_pathology': any(img['has_pathology'] for img in images)
+                }
+            
+            logger.info(f"Dataset yüklendi: {len(self._patient_cache)} hasta, {len(self._image_cache)} görüntü, {len(self._pathology_images)} patolojik")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Dataset yükleme hatası: {e}", exc_info=True)
+            return False
+    
+    def _determine_primary_diagnosis(self, findings: set) -> str:
+        """Bulgulardan ana tanıyı belirle."""
+        # Öncelik sırası
+        priority = ['Mass', 'Nodule', 'Pneumonia', 'Cardiomegaly', 'Effusion', 
+                   'Infiltration', 'Atelectasis', 'Pneumothorax', 'Consolidation',
+                   'Edema', 'Emphysema', 'Fibrosis', 'Pleural_Thickening', 'Hernia']
+        
+        for condition in priority:
+            if condition in findings:
+                return condition
+        
+        if 'No Finding' in findings or len(findings) == 0:
+            return 'No Finding'
+        
+        return list(findings)[0]
+    
+    def get_patient_info(self, patient_id: str) -> Optional[Dict]:
+        """Hasta bilgisini getir."""
+        return self._patient_cache.get(patient_id)
+    
+    def get_image_info(self, image_id: str) -> Optional[Dict]:
+        """Görüntü bilgisini getir."""
+        return self._image_cache.get(image_id)
+    
+    def get_image_path(self, image_id: str) -> Optional[Path]:
+        """Görüntü dosya yolunu getir."""
+        if self.images_path is None:
+            return None
+        
+        image_path = self.images_path / image_id
+        
+        if image_path.exists():
+            return image_path
+        
+        return None
+    
+    def get_patient_by_image(self, image_id: str) -> Optional[Dict]:
+        """Görüntüden hasta bilgisini getir."""
+        image_info = self.get_image_info(image_id)
+        if image_info:
+            return self.get_patient_info(image_info['patient_id'])
+        return None
+    
+    def get_pathology_images(self, limit: Optional[int] = None) -> List[str]:
+        """Patoloji içeren görüntüleri getir."""
+        if limit:
+            return self._pathology_images[:limit]
+        return self._pathology_images
+    
+    def get_similar_patients(self, finding: str, exclude_patient_id: Optional[str] = None, limit: int = 5) -> List[Dict]:
+        """Benzer tanıya sahip hastaları getir."""
+        similar = []
+        
+        for patient_id, patient in self._patient_cache.items():
+            if patient_id == exclude_patient_id:
+                continue
+            
+            if finding in patient.get('all_findings', []):
+                similar.append(patient)
+                
+                if len(similar) >= limit:
+                    break
+        
+        return similar
+    
+    def get_random_pathology_patient(self) -> Optional[Dict]:
+        """Rastgele patolojik hasta getir."""
+        pathology_patients = [p for p in self._patient_cache.values() if p.get('has_pathology')]
+        
+        if pathology_patients:
+            return random.choice(pathology_patients)
+        
+        return None
+    
+    def search_patients(self, query: str) -> List[Dict]:
+        """Hasta ara (ID veya tanı ile)."""
+        results = []
+        query_lower = query.lower()
+        
+        for patient_id, patient in self._patient_cache.items():
+            # ID ile eşleşme
+            if query in patient_id:
+                results.append(patient)
+                continue
+            
+            # Tanı ile eşleşme
+            diagnosis = patient.get('diagnosis', '').lower()
+            if query_lower in diagnosis:
+                results.append(patient)
+        
+        return results[:20]  # Max 20 sonuç
+    
+    def get_stats(self) -> Dict:
+        """Dataset istatistikleri."""
+        finding_counts = defaultdict(int)
+        age_sum = 0
+        age_count = 0
+        gender_counts = {'Erkek': 0, 'Kadın': 0}
+        
+        for patient in self._patient_cache.values():
+            diagnosis = patient.get('diagnosis', 'Unknown')
+            finding_counts[diagnosis] += 1
+            
+            age = patient.get('age')
+            if age:
+                age_sum += age
+                age_count += 1
+            
+            gender = patient.get('gender')
+            if gender in gender_counts:
+                gender_counts[gender] += 1
+        
+        return {
+            'total_patients': len(self._patient_cache),
+            'total_images': len(self._image_cache),
+            'pathology_images': len(self._pathology_images),
+            'finding_distribution': dict(finding_counts),
+            'average_age': round(age_sum / age_count, 1) if age_count > 0 else 0,
+            'gender_distribution': gender_counts
+        }
+    
+    def check_health(self) -> Tuple[bool, str]:
+        """Servis sağlık kontrolü."""
+        if len(self._patient_cache) > 0:
+            return True, f"Dataset servisi çalışıyor - {len(self._patient_cache)} hasta"
+        return False, "Dataset yüklenemedi"
+
+
+# Singleton instance
+dataset_service = DatasetService()

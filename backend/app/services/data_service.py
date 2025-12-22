@@ -1,6 +1,6 @@
 """
-Data Service - Sentetik Hasta Verisi Servisi
-JSON dosyasından hasta geçmişi bilgilerini yükler ve yönetir
+Data Service - Hasta Verisi Servisi
+NIH Dataset + Sentetik JSON verilerini birleştirir
 """
 
 import os
@@ -14,8 +14,9 @@ logger = logging.getLogger(__name__)
 
 class DataService:
     """
-    Sentetik hasta verisi yönetim servisi.
-    JSON dosyasından hasta bilgilerini okur ve sunar.
+    Hasta verisi yönetim servisi.
+    NIH Dataset'ten gerçek hasta bilgilerini ve
+    JSON dosyasından ek sentetik verileri okur.
     """
     
     def __init__(self, data_path: Optional[str] = None):
@@ -32,7 +33,13 @@ class DataService:
         
         self.data_path = Path(data_path)
         self._data_cache: Optional[Dict] = None
+        self._dataset_service = None
         self._load_data()
+    
+    def set_dataset_service(self, dataset_service):
+        """Dataset service referansını ayarla."""
+        self._dataset_service = dataset_service
+        logger.info("Dataset service bağlandı")
     
     def _load_data(self) -> None:
         """
@@ -43,7 +50,7 @@ class DataService:
                 with open(self.data_path, 'r', encoding='utf-8') as f:
                     self._data_cache = json.load(f)
                 patient_count = len(self._data_cache.get('patients', {}))
-                logger.info(f"Hasta verileri yüklendi: {patient_count} hasta - {self.data_path}")
+                logger.info(f"Sentetik hasta verileri yüklendi: {patient_count} hasta")
             else:
                 logger.warning(f"Veri dosyası bulunamadı: {self.data_path}")
                 self._data_cache = {"patients": {}, "metadata": {}}
@@ -57,6 +64,7 @@ class DataService:
     def get_patient_history(self, patient_id: str) -> Optional[Dict]:
         """
         Belirli bir hastanın geçmiş bilgilerini getirir.
+        Önce dataset_service'den, sonra sentetik verilerden bakar.
         
         Args:
             patient_id: Hasta ID
@@ -64,6 +72,14 @@ class DataService:
         Returns:
             dict: Hasta bilgileri veya None
         """
+        # Önce NIH dataset'ten ara
+        if self._dataset_service:
+            patient = self._dataset_service.get_patient_info(patient_id)
+            if patient:
+                logger.info(f"NIH Dataset'ten hasta bulundu: {patient_id}")
+                return patient
+        
+        # Sonra sentetik verilerden ara
         if self._data_cache is None:
             self._load_data()
         
@@ -71,7 +87,7 @@ class DataService:
         patient = patients.get(str(patient_id))
         
         if patient:
-            logger.info(f"Hasta bulundu: {patient_id}")
+            logger.info(f"Sentetik veriden hasta bulundu: {patient_id}")
             return patient
         
         logger.warning(f"Hasta bulunamadı: {patient_id}")
@@ -97,14 +113,25 @@ class DataService:
     def list_all_patients(self) -> List[str]:
         """
         Tüm hasta ID'lerini listeler.
+        NIH dataset ve sentetik verileri birleştirir.
         
         Returns:
             List[str]: Hasta ID listesi
         """
+        patient_ids = set()
+        
+        # NIH dataset'ten
+        if self._dataset_service:
+            dataset_patients = self._dataset_service.list_patients(limit=100)
+            patient_ids.update(dataset_patients)
+        
+        # Sentetik verilerden
         if self._data_cache is None:
             self._load_data()
         
-        return list(self._data_cache.get('patients', {}).keys())
+        patient_ids.update(self._data_cache.get('patients', {}).keys())
+        
+        return list(patient_ids)
     
     def search_by_diagnosis(self, diagnosis: str) -> List[Dict]:
         """
@@ -179,9 +206,23 @@ class DataService:
         Returns:
             tuple: (durum, mesaj)
         """
+        patient_count = 0
+        
+        # NIH Dataset
+        if self._dataset_service:
+            try:
+                stats = self._dataset_service.get_stats()
+                patient_count += stats.get('patient_count', 0)
+            except:
+                pass
+        
+        # Sentetik veriler
         if self._data_cache is not None:
-            patient_count = len(self._data_cache.get('patients', {}))
-            return True, f"Veri servisi çalışıyor - {patient_count} hasta"
+            patient_count += len(self._data_cache.get('patients', {}))
+        
+        if patient_count > 0:
+            return True, f"Veri servisi çalışıyor - {patient_count} hasta (NIH + sentetik)"
+        
         return False, "Veri yüklenemedi"
 
 
