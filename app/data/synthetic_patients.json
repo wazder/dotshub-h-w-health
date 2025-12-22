@@ -1,0 +1,53 @@
+{
+  "patients": {
+    "1045": {
+      "patient_id": "1045",
+      "age": 58,
+      "gender": "Erkek",
+      "diagnosis_date": "2022-03-15",
+      "diagnosis": "Akciğer Kitlesi",
+      "treatment": "Radyoterapi",
+      "outcome": "İyileşme",
+      "history": "Benzer Vaka Bulundu: Hasta 1045. İki yıl önce benzer bir kitle görüldü, Radyoterapi uygulandı ve 6 ayda iyileşme sağlandı.",
+      "notes": "Hasta düzenli kontrollere devam ediyor. Son görüntülemede nüks bulgusu yok."
+    },
+    "1046": {
+      "patient_id": "1046",
+      "age": 45,
+      "gender": "Kadın",
+      "diagnosis_date": "2023-01-20",
+      "diagnosis": "Pnömoni",
+      "treatment": "Antibiyotik Tedavisi",
+      "outcome": "Tam İyileşme",
+      "history": "Hasta 1046: Toplum kökenli pnömoni tanısı konuldu. 2 haftalık antibiyotik tedavisi sonrası tam iyileşme sağlandı.",
+      "notes": "Komplikasyon gelişmedi."
+    },
+    "1047": {
+      "patient_id": "1047",
+      "age": 62,
+      "gender": "Erkek",
+      "diagnosis_date": "2021-11-08",
+      "diagnosis": "Tüberküloz",
+      "treatment": "Anti-TB Tedavi Protokolü",
+      "outcome": "Tedavi Devam Ediyor",
+      "history": "Hasta 1047: Aktif pulmoner tüberküloz. 6 aylık tedavi protokolü başlatıldı. 4. ayda belirgin düzelme gözlemlendi.",
+      "notes": "Tedaviye uyum iyi. Yan etki minimal."
+    },
+    "1048": {
+      "patient_id": "1048",
+      "age": 35,
+      "gender": "Kadın",
+      "diagnosis_date": "2023-06-12",
+      "diagnosis": "Plevral Efüzyon",
+      "treatment": "Torasentez + Medikal Tedavi",
+      "outcome": "İyileşme",
+      "history": "Hasta 1048: Malign olmayan plevral efüzyon. Torasentez ile 1.5L sıvı boşaltıldı. Diüretik tedavi ile kontrol altına alındı.",
+      "notes": "Takip görüntülemelerinde rekürrens yok."
+    }
+  },
+  "metadata": {
+    "version": "1.0",
+    "last_updated": "2024-12-22",
+    "total_patients": 4
+  }
+}
