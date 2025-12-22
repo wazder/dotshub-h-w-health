@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 
 const AnalysisView = ({ image, onComplete, progress: externalProgress, status: externalStatus, isRealApi = false }) => {
     const [progress, setProgress] = useState(0);
-    const [status, setStatus] = useState('Initializing...');
+    const [status, setStatus] = useState('Başlatılıyor...');
 
     // Eğer gerçek API kullanılıyorsa, external props'ları kullan
     const displayProgress = isRealApi ? (externalProgress || 0) : progress;
@@ -20,11 +20,11 @@ const AnalysisView = ({ image, onComplete, progress: externalProgress, status: e
 
         // Mock mod için simüle edilmiş timeline (fallback)
         const timeline = [
-            { t: 500, p: 20, s: 'Triaging: Confirmed BRAIN MRI' },
-            { t: 1500, p: 45, s: 'Segmenting Tumor Region...' },
-            { t: 3000, p: 70, s: 'Generating Feature Embeddings (ResNet50)...' },
-            { t: 4500, p: 90, s: 'Querying Vector Database (Qdrant)...' },
-            { t: 5500, p: 100, s: 'Ranking Matches...' },
+            { t: 500, p: 20, s: 'Görüntü tipi belirleniyor...' },
+            { t: 1500, p: 45, s: 'Akciğer bölgesi analiz ediliyor...' },
+            { t: 3000, p: 70, s: 'Yapay zeka modeli çalışıyor...' },
+            { t: 4500, p: 90, s: 'Benzer vakalar aranıyor...' },
+            { t: 5500, p: 100, s: 'Sonuçlar hazırlanıyor...' },
         ];
 
         let timeoutIds = [];
@@ -59,7 +59,7 @@ const AnalysisView = ({ image, onComplete, progress: externalProgress, status: e
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center font-bold text-sm">
-                        {displayProgress}%
+                        %{displayProgress}
                     </div>
                 </div>
 
@@ -67,10 +67,10 @@ const AnalysisView = ({ image, onComplete, progress: externalProgress, status: e
 
                 {/* Visual Fake Log */}
                 <div className="w-full bg-black/50 rounded p-3 text-left h-24 overflow-hidden text-xs font-mono text-[var(--success)] opacity-80 mt-4 border border-[var(--border)]">
-                    {displayProgress > 10 && <div>&gt; Input received: 512x512 DICOM</div>}
-                    {displayProgress > 30 && <div>&gt; Triage: BRAIN [Confident: 99.8%]</div>}
-                    {displayProgress > 50 && <div>&gt; Embedding: vector[1024] generated</div>}
-                    {displayProgress > 75 && <div>&gt; Vector Search: Found 5 neighbors (dist &lt; 0.2)</div>}
+                    {displayProgress > 10 && <div>&gt; Görüntü alındı: 512x512</div>}
+                    {displayProgress > 30 && <div>&gt; Görüntü tipi: Göğüs röntgeni</div>}
+                    {displayProgress > 50 && <div>&gt; Yapay zeka analizi tamamlandı</div>}
+                    {displayProgress > 75 && <div>&gt; {5} benzer vaka bulundu</div>}
                     <div className="animate-pulse">_</div>
                 </div>
             </div>

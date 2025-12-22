@@ -41,16 +41,16 @@ const UploadZone = ({ onUpload }) => {
                 </svg>
             </div>
 
-            <h3 className="text-xl font-bold mb-2">Drop MRI Scan Here</h3>
+            <h3 className="text-xl font-bold mb-2">Röntgen Görüntüsü Yükleyin</h3>
             <p className="text-[var(--text-muted)] max-w-sm text-center mb-8">
-                Support for DICOM (.dcm) or standard image formats. <br />
-                <span className="text-[var(--warning)] text-xs mt-2 block">
-                    ⚠️ System will verify "BodyPartExamined: BRAIN"
+                DICOM (.dcm), NIfTI, PNG veya JPEG formatında görüntü yükleyebilirsiniz. <br />
+                <span className="text-[var(--text-muted)] text-xs mt-2 block">
+                    Görüntü yüklendikten sonra yapay zeka analizi başlayacaktır.
                 </span>
             </p>
 
             <button className="btn btn-primary px-8">
-                Select Files
+                Dosya Seç
             </button>
         </div>
     );

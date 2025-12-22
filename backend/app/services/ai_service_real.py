@@ -84,13 +84,18 @@ class ChestXrayModel(nn.Module):
         self.embedding = None
         self._register_hook()
         
-        # Pretrained ResNet50 (benzerlik araması için)
-        # Fine-tuned model patoloji sınıflandırma için optimize edilmiş,
-        # görsel benzerlik için ImageNet pretrained ağırlıkları daha iyi
+        # Pretrained ResNet50 (benzerlik araması için fallback)
+        # NOT: Fine-tuned embedding X-ray için daha iyi sonuç verir
+        # ImageNet embedding sadece fallback olarak kullanılır
         self.pretrained_resnet = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
         self.pretrained_resnet.fc = nn.Identity()  # FC katmanını kaldır
         self.pretrained_embedding = None
         self._register_pretrained_hook()
+        
+        # Benzerlik için fine-tuned mı ImageNet mi kullanılacak
+        # True: Fine-tuned embedding (X-ray için daha doğru)
+        # False: ImageNet pretrained (genel görsel benzerlik)
+        self.use_finetuned_embedding = True
     
     def _register_hook(self):
         """ResNet'in son avgpool katmanından embedding çıkarmak için hook."""
@@ -246,17 +251,32 @@ class RealAIService:
                 output = self.model(input_tensor)
                 probability = torch.sigmoid(output).item()
                 
-                # Pretrained model (benzerlik için)
+                # Fine-tuned embedding (sınıflandırma modelinden)
+                finetuned_embedding = self.model.get_embedding()
+                
+                # Pretrained model (fallback benzerlik için)
                 self.model.forward_pretrained(input_tensor)
                 pretrained_embedding = self.model.get_pretrained_embedding()
             
-            # 5. Pretrained embedding'i numpy'a çevir (benzerlik için daha iyi)
-            if pretrained_embedding is not None:
-                embedding_np = pretrained_embedding.cpu().numpy().flatten()
+            # 5. Embedding seç - fine-tuned tercih edilir (X-ray için daha doğru)
+            if self.model.use_finetuned_embedding and finetuned_embedding is not None:
+                embedding_source = finetuned_embedding
+                embedding_type = "fine-tuned"
+            elif pretrained_embedding is not None:
+                embedding_source = pretrained_embedding
+                embedding_type = "imagenet"
+            else:
+                embedding_source = None
+                embedding_type = "none"
+            
+            if embedding_source is not None:
+                embedding_np = embedding_source.cpu().numpy().flatten()
                 # L2 normalize
                 embedding_np = embedding_np / (np.linalg.norm(embedding_np) + 1e-8)
             else:
                 embedding_np = np.zeros(self.vector_dimension, dtype=np.float32)
+                
+            logger.debug(f"Embedding tipi: {embedding_type}")
             
             # 6. Sınıflandırma
             is_pathology = probability > 0.5

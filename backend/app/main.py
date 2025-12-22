@@ -228,26 +228,30 @@ async def analyze_image(
 
 def _generate_summary(ai_analysis: AIAnalysisResult, similar_case: Optional[SimilarCase], total_matches: int = 0) -> str:
     """
-    Analiz özeti oluşturur.
+    Analiz özeti oluşturur (profesyonel format).
     """
+    # İkili sınıflandırma sonucu için daha doğru açıklama
+    if ai_analysis.label == "No Finding":
+        tespit = "Normal bulgular"
+    elif ai_analysis.label in ["Mass|Nodule", "Pathology"]:
+        tespit = "Patolojik bulgular tespit edildi"
+    else:
+        tespit = ai_analysis.label
+    
     parts = [
-        f"🔬 Analiz Tamamlandı.",
-        f"📊 Tespit: {ai_analysis.label} ({ai_analysis.probability:.0%} olasılık, {ai_analysis.confidence} güven)"
+        f"Analiz Tamamlandı",
+        f"Sonuç: {tespit} (Güven: {ai_analysis.confidence})"
     ]
     
     if similar_case and total_matches > 0:
         parts.append(
-            f"📁 Benzer Vaka: Hasta {similar_case.patient_id} "
+            f"En yakın vaka: Hasta {similar_case.patient_id} "
             f"({similar_case.similarity_score:.0%} benzerlik)"
         )
         if total_matches > 1:
-            parts.append(f"🔍 Toplam {total_matches} benzer vaka bulundu")
-        if similar_case.history.treatment:
-            parts.append(f"💊 Uygulanan Tedavi: {similar_case.history.treatment}")
-        if similar_case.history.outcome:
-            parts.append(f"✅ Sonuç: {similar_case.history.outcome}")
+            parts.append(f"Toplam {total_matches} benzer vaka bulundu")
     else:
-        parts.append("⚠️ Benzer vaka bulunamadı.")
+        parts.append("Benzer vaka bulunamadı")
     
     return " | ".join(parts)
 
@@ -318,6 +322,8 @@ async def get_patient(patient_id: str):
     Hasta bilgisi endpoint'i.
     NIH dataset'ten ve sentetik verilerden hasta bilgisi döner.
     """
+    from datetime import datetime, timedelta
+    
     # Önce dataset_service'den dene
     patient = dataset_service.get_patient_info(patient_id)
     
@@ -325,17 +331,24 @@ async def get_patient(patient_id: str):
         # Görüntü URL'lerini ekle
         images = patient.get('images', [])
         scans = []
+        today = datetime.now()
+        
         for idx, image_id in enumerate(images[:6]):  # Max 6 tarama
             image_info = dataset_service.get_image_info(image_id)
             if image_info:
+                # Tarih: bugünden geriye doğru haftalık aralıklarla
+                scan_date = today - timedelta(weeks=idx)
                 scans.append({
                     'id': image_id,
-                    'date': f"2023-{(idx % 12) + 1:02d}-{15 - idx}",
+                    'date': scan_date.strftime('%Y-%m-%d'),
                     'type': image_info.get('view_position', 'PA'),
-                    'status': 'Abnormal' if image_info.get('has_pathology') else 'Normal',
+                    'status': 'Anormal' if image_info.get('has_pathology') else 'Normal',
                     'imageUrl': f"/api/images/{image_id}",
                     'findings': image_info.get('finding_labels', '')
                 })
+        
+        # Tanı tarihi: en eski tarama tarihine yakın
+        diagnosis_date = today - timedelta(weeks=len(scans)) if scans else today
         
         return {
             "success": True,
@@ -344,9 +357,9 @@ async def get_patient(patient_id: str):
                 "scans": scans,
                 "diagnosisHistory": [
                     {
-                        "date": "2023-11-16",
-                        "diagnosis": patient.get('diagnosis', 'Bilinmiyor'),
-                        "physician": "Dr. AI System"
+                        "date": diagnosis_date.strftime('%Y-%m-%d'),
+                        "diagnosis": patient.get('diagnosis', 'Bilgi Yok'),
+                        "physician": "Radyoloji AI Sistemi"
                     }
                 ]
             }

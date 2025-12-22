@@ -1,28 +1,68 @@
 import React, { useState, useMemo } from 'react';
 
-// Fallback Mock Data - API sonucu yoksa kullanılır
-const MOCK_MATCHES = Array.from({ length: 12 }, (_, i) => ({
-    id: `PT-${1000 + i}`,
-    patientId: `${1000 + i}`,
-    similarity: (98 - i * 1.5).toFixed(1),
-    similarityScore: (0.98 - i * 0.015),
-    diagnosis: i % 2 === 0 ? 'Glioblastoma Multiforme' : 'Anaplastic Astrocytoma',
-    age: 45 + (i * 3) % 40,
-    date: `2023-${(i % 12) + 1}-15`,
-    outcome: i % 3 === 0 ? 'Remission' : i % 3 === 1 ? 'Stable' : 'Recurrence',
-    imgUrl: null
-}));
+// Model çıktısı için çeviriler (Binary Classification: No Finding vs Mass/Nodule)
+const MODEL_LABELS = {
+    'No Finding': {
+        tr: 'Normal - Bulgu Yok',
+        description: 'Yapay zeka modeli görüntüde kitle veya nodül tespit etmedi.',
+        color: 'green'
+    },
+    'Mass|Nodule': {
+        tr: 'Patoloji Tespit Edildi',
+        description: 'Yapay zeka modeli görüntüde kitle veya nodül şüphesi tespit etti. Uzman değerlendirmesi önerilir.',
+        color: 'red'
+    },
+    'Pathology': {
+        tr: 'Patoloji Tespit Edildi',
+        description: 'Yapay zeka modeli görüntüde kitle veya nodül şüphesi tespit etti.',
+        color: 'red'
+    },
+    'Error': {
+        tr: 'Analiz Hatası',
+        description: 'Görüntü analiz edilemedi.',
+        color: 'yellow'
+    }
+};
 
-const ResultsView = ({ image, onSelectPatient, analysisResult }) => {
+// Dataset'teki tanılar için çeviriler (benzer vakalarda gösterilir)
+const DIAGNOSIS_TERMS = {
+    'No Finding': 'Bulgu Yok',
+    'Nodule': 'Nodül',
+    'Mass': 'Kitle',
+    'Mass|Nodule': 'Kitle/Nodül',
+    'Infiltration': 'İnfiltrasyon',
+    'Atelectasis': 'Atelektazi',
+    'Effusion': 'Efüzyon',
+    'Pneumothorax': 'Pnömotoraks',
+    'Consolidation': 'Konsolidasyon',
+    'Pleural_Thickening': 'Plevral Kalınlaşma',
+    'Cardiomegaly': 'Kardiyomegali',
+    'Emphysema': 'Amfizem',
+    'Edema': 'Ödem',
+    'Fibrosis': 'Fibrozis',
+    'Pneumonia': 'Pnömoni',
+    'Hernia': 'Herni'
+};
+
+const translateDiagnosis = (term) => {
+    if (!term) return 'Bilgi Yok';
+    return DIAGNOSIS_TERMS[term] || term;
+};
+
+const getModelLabel = (label) => {
+    return MODEL_LABELS[label] || MODEL_LABELS['No Finding'];
+};
+
+const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName }) => {
     const [visibleCount, setVisibleCount] = useState(3);
 
-    // API sonucundan verileri çıkar veya fallback kullan
-    const { aiDiagnosis, matches, summary } = useMemo(() => {
+    // API sonucundan verileri çıkar
+    const { aiDiagnosis, matches } = useMemo(() => {
         if (!analysisResult) {
+            // API sonucu yoksa boş döndür - mock data kullanmıyoruz
             return {
-                aiDiagnosis: { label: 'Glioblastoma', probability: 0.92, confidence: 'Yüksek' },
-                matches: MOCK_MATCHES,
-                summary: 'Mock analiz sonucu'
+                aiDiagnosis: { label: 'Error', probability: 0, confidence: 'Yok', isPathology: false },
+                matches: []
             };
         }
 
@@ -40,16 +80,11 @@ const ResultsView = ({ image, onSelectPatient, analysisResult }) => {
                 patientId: sc.patientId,
                 similarity: (sc.similarityScore * 100).toFixed(1),
                 similarityScore: sc.similarityScore,
-                diagnosis: history.diagnosis || aiAnalysis.label || 'Bilinmiyor',
+                diagnosis: history.diagnosis || 'Bilgi Yok',
                 age: history.age || 0,
-                gender: history.gender || 'Bilinmiyor',
-                date: history.diagnosisDate || 'N/A',
-                outcome: history.outcome || 'Bilinmiyor',
-                treatment: history.treatment || 'Bilinmiyor',
-                notes: history.notes || '',
-                history: history.history || '',
+                gender: history.gender || null,
                 imageId: sc.imageId,
-                imageUrl: sc.imageUrl  // Backend'den gelen görüntü URL'i
+                imageUrl: sc.imageUrl
             };
         });
 
@@ -62,14 +97,9 @@ const ResultsView = ({ image, onSelectPatient, analysisResult }) => {
                 patientId: similarCase.patientId,
                 similarity: (similarCase.similarityScore * 100).toFixed(1),
                 similarityScore: similarCase.similarityScore,
-                diagnosis: history.diagnosis || aiAnalysis.label || 'Bilinmiyor',
+                diagnosis: history.diagnosis || 'Bilgi Yok',
                 age: history.age || 0,
-                gender: history.gender || 'Bilinmiyor',
-                date: history.diagnosisDate || 'N/A',
-                outcome: history.outcome || 'Bilinmiyor',
-                treatment: history.treatment || 'Bilinmiyor',
-                notes: history.notes || '',
-                history: history.history || '',
+                gender: history.gender || null,
                 imageId: similarCase.imageId,
                 imageUrl: similarCase.imageUrl
             });
@@ -77,13 +107,13 @@ const ResultsView = ({ image, onSelectPatient, analysisResult }) => {
 
         return {
             aiDiagnosis: {
-                label: aiAnalysis.label || 'Bilinmiyor',
+                label: aiAnalysis.label || 'Error',
                 labelTr: aiAnalysis.labelTr,
                 probability: aiAnalysis.probability || 0,
-                confidence: aiAnalysis.confidence || 'Bilinmiyor'
+                confidence: aiAnalysis.confidence || 'Bilinmiyor',
+                isPathology: aiAnalysis.isPathology || false
             },
-            matches: matchList,
-            summary: analysisResult.summary || ''
+            matches: matchList
         };
     }, [analysisResult]);
 
@@ -91,17 +121,22 @@ const ResultsView = ({ image, onSelectPatient, analysisResult }) => {
         setVisibleCount(prev => Math.min(prev + 3, matches.length));
     };
 
-    // Outcome için renk belirleme
-    const getOutcomeStyle = (outcome) => {
-        const outcomeLC = (outcome || '').toLowerCase();
-        if (outcomeLC.includes('remission') || outcomeLC.includes('iyileş') || outcomeLC.includes('tam')) {
-            return 'border-green-900 text-green-300 bg-green-900/10';
+    // Dosya tipini belirle
+    const getFileType = () => {
+        if (uploadedFileName) {
+            const ext = uploadedFileName.split('.').pop()?.toLowerCase();
+            if (ext === 'dcm' || ext === 'dicom') return 'DICOM Görüntüsü';
+            if (ext === 'png') return 'PNG Görüntüsü';
+            if (ext === 'jpg' || ext === 'jpeg') return 'JPEG Görüntüsü';
+            if (ext === 'nii' || ext === 'gz') return 'NIfTI Görüntüsü';
+            return `${ext?.toUpperCase()} Dosyası`;
         }
-        if (outcomeLC.includes('recurrence') || outcomeLC.includes('nüks') || outcomeLC.includes('kötü')) {
-            return 'border-red-900 text-red-300 bg-red-900/10';
-        }
-        return 'border-yellow-900 text-yellow-300 bg-yellow-900/10';
+        return 'Göğüs Röntgeni';
     };
+
+    // Model sonucu için bilgi al
+    const modelInfo = getModelLabel(aiDiagnosis.label);
+    const isPathology = aiDiagnosis.isPathology || aiDiagnosis.label === 'Mass|Nodule' || aiDiagnosis.label === 'Pathology';
 
     return (
         <div className="w-full h-full grid grid-cols-12 overflow-hidden">
@@ -109,22 +144,34 @@ const ResultsView = ({ image, onSelectPatient, analysisResult }) => {
             {/* LEFT: Current Patient (Uploaded Image) */}
             <div className="col-span-6 bg-black flex items-center justify-center relative border-r border-[var(--border)]">
                 {image ? (
-                    <img src={image} alt="Uploaded Analysis" className="max-h-full max-w-full object-contain" />
+                    <img src={image} alt="Yüklenen Analiz" className="max-h-full max-w-full object-contain" />
                 ) : (
-                    <div className="text-[var(--text-muted)]">No image loaded</div>
+                    <div className="text-[var(--text-muted)]">Görüntü yüklenmedi</div>
                 )}
 
                 {/* Overlay Metadata */}
                 <div className="absolute top-4 left-4 bg-black/70 backdrop-blur px-3 py-1.5 rounded border border-white/10">
-                    <h3 className="text-white text-sm font-bold">Uploaded Scan</h3>
-                    <p className="text-[var(--text-muted)] text-xs">DICOM / AXIAL</p>
+                    <h3 className="text-white text-sm font-bold">Yüklenen Görüntü</h3>
+                    <p className="text-[var(--text-muted)] text-xs">{getFileType()}</p>
                 </div>
 
-                {/* AI Diagnosis Badge - Artık gerçek veriden geliyor */}
-                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-[var(--primary)]/90 backdrop-blur px-6 py-2 rounded-full border border-[var(--primary)] shadow-2xl shadow-[var(--primary)]/20 animate-pulse">
-                    <span className="font-bold text-white text-sm">
-                        Diagnosis: {aiDiagnosis.labelTr || aiDiagnosis.label} ({(aiDiagnosis.probability * 100).toFixed(0)}% - {aiDiagnosis.confidence})
-                    </span>
+                {/* AI Diagnosis Badge - Dürüst Model Sonucu */}
+                <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 backdrop-blur px-6 py-3 rounded-lg border shadow-2xl ${
+                    isPathology 
+                        ? 'bg-red-900/90 border-red-500 shadow-red-500/20' 
+                        : 'bg-green-900/90 border-green-500 shadow-green-500/20'
+                }`}>
+                    <div className="text-center">
+                        <span className={`font-bold text-lg ${isPathology ? 'text-red-200' : 'text-green-200'}`}>
+                            {isPathology ? '⚠️ Patoloji Tespit Edildi' : '✓ Normal - Bulgu Yok'}
+                        </span>
+                        <div className="text-xs text-white/70 mt-1">
+                            {modelInfo.description}
+                        </div>
+                        <div className="text-xs text-white/50 mt-2 max-w-xs">
+                            ⓘ Bu model sadece ikili sınıflandırma yapar (normal/anormal). Kesin tanı için uzman değerlendirmesi gereklidir.
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -133,16 +180,20 @@ const ResultsView = ({ image, onSelectPatient, analysisResult }) => {
                 <div className="p-6 border-b border-[var(--border)] shrink-0">
                     <h2 className="text-xl font-bold flex items-center gap-2">
                         <span className="text-[var(--success)]">●</span>
-                        Similar Case Matches
+                        Benzer Vakalar
                     </h2>
                     <p className="text-sm text-[var(--text-muted)] mt-1">
-                        AI found {matches.length} confirmed cases with high structural similarity.
+                        Yapay zeka, yüklenen görüntüye benzer {matches.length} vaka buldu.
                     </p>
-                    {/* Summary from Backend */}
-                    {summary && (
-                        <p className="text-xs text-[var(--primary)] mt-2 bg-[var(--primary)]/10 p-2 rounded">
-                            {summary}
-                        </p>
+                    {/* Summary from Backend - More Professional */}
+                    {matches.length > 0 && (
+                        <div className="text-xs text-[var(--text-muted)] mt-3 bg-[var(--bg-dark)] p-3 rounded border border-[var(--border)]">
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="text-[var(--success)]">✓</span>
+                                <span className="font-medium text-[var(--text-main)]">Analiz Tamamlandı</span>
+                            </div>
+                            <p>En yakın eşleşme: <span className="text-[var(--primary)]">Hasta #{matches[0]?.patientId}</span> (%{matches[0]?.similarity} benzerlik)</p>
+                        </div>
                     )}
                 </div>
 
@@ -158,7 +209,7 @@ const ResultsView = ({ image, onSelectPatient, analysisResult }) => {
                                 {match.imageUrl ? (
                                     <img 
                                         src={match.imageUrl}
-                                        alt={`Patient ${match.patientId} scan`}
+                                        alt={`Hasta ${match.patientId} taraması`}
                                         className="w-full h-full object-cover grayscale"
                                         onError={(e) => {
                                             e.target.style.display = 'none';
@@ -181,26 +232,24 @@ const ResultsView = ({ image, onSelectPatient, analysisResult }) => {
                             {/* Match Details */}
                             <div className="flex-1 min-w-0">
                                 <div className="flex justify-between items-start mb-1">
-                                    <h4 className="font-bold text-lg text-white">Patient #{match.id}</h4>
+                                    <h4 className="font-bold text-lg text-white">Hasta #{match.id}</h4>
                                     <span className="text-[var(--success)] font-mono font-bold bg-[var(--success)]/10 px-2 py-0.5 rounded text-sm">
-                                        {match.similarity}% Sim
+                                        %{match.similarity} Benzerlik
                                     </span>
                                 </div>
-                                <p className="text-[var(--text-muted)] text-sm mb-2">{match.diagnosis}</p>
+                                <p className="text-[var(--primary)] text-sm mb-2 font-medium">{translateDiagnosis(match.diagnosis)}</p>
 
-                                <div className="flex items-center gap-4 text-xs text-[var(--text-muted)]">
-                                    <span className="bg-[var(--bg-dark)] px-2 py-1 rounded">Age: {match.age}</span>
-                                    {match.gender && (
-                                        <span className="bg-[var(--bg-dark)] px-2 py-1 rounded">{match.gender}</span>
+                                <div className="flex items-center gap-3 text-xs text-[var(--text-muted)]">
+                                    {match.age > 0 && (
+                                        <span className="bg-[var(--bg-dark)] px-2 py-1 rounded">Yaş: {match.age}</span>
                                     )}
-                                    <span className={`px-2 py-1 rounded border ${getOutcomeStyle(match.outcome)}`}>
-                                        {match.outcome}
-                                    </span>
+                                    {match.gender && match.gender !== 'Bilinmiyor' && match.gender !== 'Unknown' && (
+                                        <span className="bg-[var(--bg-dark)] px-2 py-1 rounded">
+                                            {match.gender === 'F' || match.gender === 'Kadın' ? 'Kadın' : 
+                                             match.gender === 'M' || match.gender === 'Erkek' ? 'Erkek' : match.gender}
+                                        </span>
+                                    )}
                                 </div>
-                                {/* Treatment info if available */}
-                                {match.treatment && (
-                                    <p className="text-xs text-[var(--primary)] mt-2">💊 {match.treatment}</p>
-                                )}
                             </div>
                         </div>
                     ))}
@@ -216,7 +265,7 @@ const ResultsView = ({ image, onSelectPatient, analysisResult }) => {
                                 <line x1="12" y1="8" x2="12" y2="16"></line>
                                 <line x1="8" y1="12" x2="16" y2="12"></line>
                             </svg>
-                            Show 3 More Matches
+                            3 Vaka Daha Göster
                         </button>
                     )}
                 </div>

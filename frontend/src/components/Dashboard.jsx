@@ -53,21 +53,21 @@ const Dashboard = ({ onSelectPatient }) => {
                 <div className="flex items-center justify-between mb-8">
                     <div>
                         <h1 className="text-2xl font-bold mb-1">
-                            {step === 'upload' && 'New Patient Entry'}
-                            {step === 'analyzing' && 'Processing Analysis'}
-                            {step === 'results' && 'Clinical Decision Support'}
+                            {step === 'upload' && 'Yeni Görüntü Yükle'}
+                            {step === 'analyzing' && 'Analiz Ediliyor'}
+                            {step === 'results' && 'Klinik Karar Desteği'}
                         </h1>
                         <p className="text-sm text-[var(--text-muted)]">
-                            {step === 'upload' && 'Upload DICOM/MRI data to begin triage.'}
-                            {step === 'analyzing' && (analysis.statusMessage || 'Extracting features and searching vector database...')}
-                            {step === 'results' && 'Matched similar cases based on latent space embedding.'}
+                            {step === 'upload' && 'Analiz için röntgen veya DICOM görüntüsü yükleyin.'}
+                            {step === 'analyzing' && (analysis.statusMessage || 'Görüntü analiz ediliyor, lütfen bekleyin...')}
+                            {step === 'results' && 'Benzer vakalar yapay zeka ile eşleştirildi.'}
                         </p>
                     </div>
 
                     {step !== 'upload' && (
                         <div className="flex gap-2">
                             <button onClick={handleReset} className="btn text-sm text-[var(--text-muted)] hover:text-white border border-[var(--border)]">
-                                New Search
+                                Yeni Arama
                             </button>
                         </div>
                     )}
@@ -90,6 +90,7 @@ const Dashboard = ({ onSelectPatient }) => {
                             image={currentImage} 
                             onSelectPatient={onSelectPatient}
                             analysisResult={analysis.result}
+                            uploadedFileName={currentFile?.name}
                         />
                     )}
                 </div>
