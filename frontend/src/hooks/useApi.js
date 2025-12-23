@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react';
 
 /**
- * useApi - API istekleri için hook
+ * useApi - Hook for API requests
  * 
- * Loading state, error handling ve retry mekanizması sağlar.
+ * Provides loading state, error handling, and retry mechanism.
  * 
  * @example
  * const { data, error, loading, execute } = useApi(api.analyzeImage);
@@ -46,9 +46,9 @@ export function useApi(apiFunction) {
 }
 
 /**
- * useAnalysis - Görüntü analizi için özelleştirilmiş hook
+ * useAnalysis - Customized hook for image analysis
  * 
- * Progress tracking ve step-by-step status updates sağlar.
+ * Provides progress tracking and step-by-step status updates.
  */
 export function useAnalysis() {
     const [status, setStatus] = useState('idle'); // idle, uploading, analyzing, complete, error
@@ -60,18 +60,19 @@ export function useAnalysis() {
     const analyze = useCallback(async (file, apiFunction) => {
         setStatus('uploading');
         setProgress(10);
-        setStatusMessage('Dosya yükleniyor...');
+        setStatusMessage('Uploading file...');
         setError(null);
         
         try {
-            // Simüle edilmiş progress (gerçek API progress tracking desteklemiyorsa)
+            // NOTE: Progress is simulated since backend doesn't support real-time progress
+            // In production, consider using WebSocket or Server-Sent Events for real progress
             const progressSteps = [
-                { progress: 25, message: 'PACS sunucusuna gönderiliyor...' },
-                { progress: 50, message: 'AI modeli analiz yapıyor...' },
-                { progress: 75, message: 'Benzer vakalar aranıyor...' },
+                { progress: 25, message: 'Sending to PACS server...' },
+                { progress: 50, message: 'AI model analyzing...' },
+                { progress: 75, message: 'Searching similar cases...' },
             ];
             
-            // Progress simulation başlat
+            // Start progress simulation
             setStatus('analyzing');
             let stepIndex = 0;
             const progressInterval = setInterval(() => {
@@ -82,14 +83,14 @@ export function useAnalysis() {
                 }
             }, 1000);
             
-            // Gerçek API çağrısı
+            // Real API call
             const response = await apiFunction(file);
             
-            // Progress temizle
+            // Clear progress
             clearInterval(progressInterval);
             
             setProgress(100);
-            setStatusMessage('Analiz tamamlandı!');
+            setStatusMessage('Analysis complete!');
             setResult(response);
             setStatus('complete');
             
@@ -98,7 +99,7 @@ export function useAnalysis() {
         } catch (err) {
             setStatus('error');
             setError(err);
-            setStatusMessage(err.message || 'Bir hata oluştu');
+            setStatusMessage(err.message || 'An error occurred');
             return null;
         }
     }, []);

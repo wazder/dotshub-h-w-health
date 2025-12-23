@@ -1,7 +1,7 @@
 # NIH Chest X-ray Multi-Label Training Requirements
-# RunPod veya GPU sunucusu için
+# For RunPod or GPU server
 
-# PyTorch (CUDA 11.8 için)
+# PyTorch (for CUDA 11.8)
 torch>=2.0.0
 torchvision>=0.15.0
 

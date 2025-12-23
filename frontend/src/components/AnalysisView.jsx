@@ -2,29 +2,29 @@ import React, { useEffect, useState } from 'react';
 
 const AnalysisView = ({ image, onComplete, progress: externalProgress, status: externalStatus, isRealApi = false }) => {
     const [progress, setProgress] = useState(0);
-    const [status, setStatus] = useState('Başlatılıyor...');
+    const [status, setStatus] = useState('Initializing...');
 
-    // Eğer gerçek API kullanılıyorsa, external props'ları kullan
+    // If using real API, use external props
     const displayProgress = isRealApi ? (externalProgress || 0) : progress;
-    const displayStatus = isRealApi ? (externalStatus || 'İşleniyor...') : status;
+    const displayStatus = isRealApi ? (externalStatus || 'Processing...') : status;
 
     useEffect(() => {
-        // Gerçek API modunda mock timeline çalıştırma
+        // In real API mode, don't run mock timeline
         if (isRealApi) {
-            // API'den gelen progress 100'e ulaştığında complete çağır
+            // Call complete when API progress reaches 100
             if (externalProgress >= 100) {
                 setTimeout(onComplete, 500);
             }
             return;
         }
 
-        // Mock mod için simüle edilmiş timeline (fallback)
+        // Simulated timeline for mock mode (fallback)
         const timeline = [
-            { t: 500, p: 20, s: 'Görüntü tipi belirleniyor...' },
-            { t: 1500, p: 45, s: 'Akciğer bölgesi analiz ediliyor...' },
-            { t: 3000, p: 70, s: 'Yapay zeka modeli çalışıyor...' },
-            { t: 4500, p: 90, s: 'Benzer vakalar aranıyor...' },
-            { t: 5500, p: 100, s: 'Sonuçlar hazırlanıyor...' },
+            { t: 500, p: 20, s: 'Determining image type...' },
+            { t: 1500, p: 45, s: 'Analyzing lung region...' },
+            { t: 3000, p: 70, s: 'AI model running...' },
+            { t: 4500, p: 90, s: 'Searching similar cases...' },
+            { t: 5500, p: 100, s: 'Preparing results...' },
         ];
 
         let timeoutIds = [];
@@ -67,10 +67,10 @@ const AnalysisView = ({ image, onComplete, progress: externalProgress, status: e
 
                 {/* Visual Fake Log */}
                 <div className="w-full bg-black/50 rounded p-3 text-left h-24 overflow-hidden text-xs font-mono text-[var(--success)] opacity-80 mt-4 border border-[var(--border)]">
-                    {displayProgress > 10 && <div>&gt; Görüntü alındı: 512x512</div>}
-                    {displayProgress > 30 && <div>&gt; Görüntü tipi: Göğüs röntgeni</div>}
-                    {displayProgress > 50 && <div>&gt; Yapay zeka analizi tamamlandı</div>}
-                    {displayProgress > 75 && <div>&gt; {5} benzer vaka bulundu</div>}
+                    {displayProgress > 10 && <div>&gt; Image received: 512x512</div>}
+                    {displayProgress > 30 && <div>&gt; Image type: Chest X-ray</div>}
+                    {displayProgress > 50 && <div>&gt; AI analysis completed</div>}
+                    {displayProgress > 75 && <div>&gt; {5} similar cases found</div>}
                     <div className="animate-pulse">_</div>
                 </div>
             </div>

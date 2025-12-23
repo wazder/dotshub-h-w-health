@@ -1,18 +1,18 @@
 """
-Tıbbi X-Ray Analiz Pipeline - Backend API
-==========================================
+Medical X-Ray Analysis Pipeline - Backend API
+==============================================
 
-Bu modül, DICOM görüntülerini analiz eden ve benzer vakaları bulan
-bir tıbbi yapay zeka pipeline'ı sağlar.
+This module provides a medical AI pipeline that analyzes
+DICOM images and finds similar cases.
 
-Modüller:
-    - main: FastAPI uygulama giriş noktası
-    - models: Pydantic veri modelleri
-    - services: İş mantığı servisleri
-        - pacs_service: Orthanc PACS entegrasyonu
-        - ai_service: AI analiz motoru
-        - search_service: Vektör benzerlik araması
-        - data_service: Hasta verisi yönetimi
+Modules:
+    - main: FastAPI application entry point
+    - models: Pydantic data models
+    - services: Business logic services
+        - pacs_service: Orthanc PACS integration
+        - ai_service: AI analysis engine
+        - search_service: Vector similarity search
+        - data_service: Patient data management
 """
 
 __version__ = "1.0.0-prototype"

@@ -3,8 +3,8 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 /**
  * Toast Notification Context
  * 
- * Global toast mesajları için context provider.
- * Kullanım: const { showToast } = useToast();
+ * Context provider for global toast messages.
+ * Usage: const { showToast } = useToast();
  */
 
 const ToastContext = createContext(null);
@@ -17,7 +17,7 @@ export const useToast = () => {
     return context;
 };
 
-// Toast tipleri için stiller
+// Styles for toast types
 const TOAST_STYLES = {
     success: {
         bg: 'bg-green-500/90',

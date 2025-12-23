@@ -7,4 +7,4 @@ requests
 python-dotenv
 Pillow
 nibabel
-# pyorthanc  # Opsiyonel - gerçek PACS entegrasyonu için
+# pyorthanc  # Optional - for real PACS integration

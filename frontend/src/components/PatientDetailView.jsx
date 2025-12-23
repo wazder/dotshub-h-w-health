@@ -1,27 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { getPatient } from '../services/api';
 
-// Tıbbi terim çevirileri ve açıklamaları
+// Medical term translations and descriptions
 const MEDICAL_TERMS = {
-    'No Finding': { tr: 'Bulgu Yok', desc: 'Röntgende herhangi bir anormal bulgu tespit edilmedi.' },
-    'Nodule': { tr: 'Nodül', desc: 'Akciğerde küçük yuvarlak lezyon. İyi huylu veya kötü huylu olabilir, takip gerektirebilir.' },
-    'Infiltration': { tr: 'İnfiltrasyon', desc: 'Akciğer dokusuna sıvı veya hücre birikimi. Enfeksiyon belirtisi olabilir.' },
-    'Atelectasis': { tr: 'Atelektazi', desc: 'Akciğerin bir bölümünün çökmesi veya hava kaybetmesi.' },
-    'Effusion': { tr: 'Efüzyon', desc: 'Akciğer zarları arasında sıvı birikimi (plevral efüzyon).' },
-    'Pneumothorax': { tr: 'Pnömotoraks', desc: 'Akciğer ile göğüs duvarı arasında hava birikimi, acil müdahale gerektirebilir.' },
-    'Mass': { tr: 'Kitle', desc: 'Akciğerde büyük lezyon. İleri tetkik gerektirir.' },
-    'Consolidation': { tr: 'Konsolidasyon', desc: 'Akciğer dokusunun yoğunlaşması, genellikle zatürre belirtisi.' },
-    'Pleural_Thickening': { tr: 'Plevral Kalınlaşma', desc: 'Akciğer zarının kalınlaşması.' },
-    'Cardiomegaly': { tr: 'Kardiyomegali', desc: 'Kalp büyümesi, kalp yetmezliği belirtisi olabilir.' },
-    'Emphysema': { tr: 'Amfizem', desc: 'Akciğer hava keseciklerinin hasar görmesi, KOAH\'ın bir türü.' },
-    'Edema': { tr: 'Ödem', desc: 'Akciğerlerde sıvı birikimi.' },
-    'Fibrosis': { tr: 'Fibrozis', desc: 'Akciğer dokusunun sertleşmesi ve skarlaşması.' },
-    'Pneumonia': { tr: 'Zatürre', desc: 'Akciğer enfeksiyonu, tedavi gerektirir.' },
-    'Hernia': { tr: 'Herni', desc: 'Diyafram fıtığı.' }
+    'No Finding': { tr: 'No Finding', desc: 'No abnormal findings detected on the X-ray.' },
+    'Nodule': { tr: 'Nodule', desc: 'Small round lesion in the lung. May be benign or malignant, may require follow-up.' },
+    'Infiltration': { tr: 'Infiltration', desc: 'Fluid or cell accumulation in lung tissue. May indicate infection.' },
+    'Atelectasis': { tr: 'Atelectasis', desc: 'Collapse or loss of air in a part of the lung.' },
+    'Effusion': { tr: 'Effusion', desc: 'Fluid accumulation between lung membranes (pleural effusion).' },
+    'Pneumothorax': { tr: 'Pneumothorax', desc: 'Air accumulation between lung and chest wall, may require emergency intervention.' },
+    'Mass': { tr: 'Mass', desc: 'Large lesion in the lung. Requires further investigation.' },
+    'Consolidation': { tr: 'Consolidation', desc: 'Densification of lung tissue, usually indicates pneumonia.' },
+    'Pleural_Thickening': { tr: 'Pleural Thickening', desc: 'Thickening of the lung membrane.' },
+    'Cardiomegaly': { tr: 'Cardiomegaly', desc: 'Enlarged heart, may indicate heart failure.' },
+    'Emphysema': { tr: 'Emphysema', desc: 'Damage to lung air sacs, a type of COPD.' },
+    'Edema': { tr: 'Edema', desc: 'Fluid accumulation in the lungs.' },
+    'Fibrosis': { tr: 'Fibrosis', desc: 'Hardening and scarring of lung tissue.' },
+    'Pneumonia': { tr: 'Pneumonia', desc: 'Lung infection, requires treatment.' },
+    'Hernia': { tr: 'Hernia', desc: 'Diaphragmatic hernia.' }
 };
 
 const translateMedicalTerm = (term) => {
-    if (!term) return 'Bilgi Yok';
+    if (!term) return 'No Information';
     const found = MEDICAL_TERMS[term];
     return found ? found.tr : term;
 };
@@ -37,7 +37,7 @@ const PatientDetailView = ({ patient, onBack, returnToResults }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // Hasta ID'sini al
+    // Get patient ID
     const patientId = patient?.patientId || patient?.id?.replace('PT-', '') || 'Unknown';
 
     useEffect(() => {
@@ -48,11 +48,11 @@ const PatientDetailView = ({ patient, onBack, returnToResults }) => {
                 if (data?.patient) {
                     setPatientData(data.patient);
                 } else {
-                    // API'den veri gelmezse prop'lardan oluştur
+                    // If no data from API, use props
                     setPatientData(null);
                 }
             } catch (err) {
-                // API hatası - sessizce fallback kullan
+                // API error - silently use fallback
                 setError(err.message);
             } finally {
                 setLoading(false);
@@ -66,15 +66,15 @@ const PatientDetailView = ({ patient, onBack, returnToResults }) => {
         }
     }, [patientId]);
 
-    // Gösterilecek verileri birleştir
+    // Merge data for display
     const displayData = {
         id: patientId,
         age: patientData?.age || patient?.age || 45,
-        gender: patientData?.gender || patient?.gender || 'Bilinmiyor',
-        diagnosis: patientData?.diagnosis || patient?.diagnosis || 'Bilinmiyor',
+        gender: patientData?.gender || patient?.gender || 'Unknown',
+        diagnosis: patientData?.diagnosis || patient?.diagnosis || 'Unknown',
         scans: patientData?.scans || [],
         diagnosisHistory: patientData?.diagnosisHistory || [
-            { date: '2023-11-16', diagnosis: patient?.diagnosis || 'Bilinmiyor', physician: 'Dr. AI System' }
+            { date: '2023-11-16', diagnosis: patient?.diagnosis || 'Unknown', physician: 'Dr. AI System' }
         ],
         allFindings: patientData?.all_findings || [],
         imageCount: patientData?.image_count || 0
@@ -85,7 +85,7 @@ const PatientDetailView = ({ patient, onBack, returnToResults }) => {
             <div className="w-full h-full flex items-center justify-center bg-[var(--bg-dark)]">
                 <div className="text-center">
                     <div className="animate-spin w-12 h-12 border-4 border-[var(--primary)] border-t-transparent rounded-full mx-auto mb-4"></div>
-                    <p className="text-[var(--text-muted)]">Hasta bilgileri yükleniyor...</p>
+                    <p className="text-[var(--text-muted)]">Loading patient information...</p>
                 </div>
             </div>
         );
@@ -101,17 +101,17 @@ const PatientDetailView = ({ patient, onBack, returnToResults }) => {
                     className="flex items-center gap-2 text-[var(--text-muted)] hover:text-[var(--text-main)] transition group mb-4"
                 >
                     <svg className="group-hover:-translate-x-1 transition-transform" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5" /><path d="M12 19l-7-7 7-7" /></svg>
-                    <span>Analiz Sonuçlarına Dön</span>
+                    <span>Back to Analysis Results</span>
                 </button>
 
-                {/* Prototip Uyarı Banner */}
+                {/* Prototype Warning Banner */}
                 <div className="bg-amber-900/30 border border-amber-600/50 rounded-lg p-4 flex items-start gap-3">
                     <span className="text-amber-500 text-xl">⚠️</span>
                     <div>
-                        <p className="text-amber-300 font-medium">Prototip Modu - Demo Veriler</p>
+                        <p className="text-amber-300 font-medium">Prototype Mode - Demo Data</p>
                         <p className="text-amber-500/80 text-sm">
-                            Bu sistemde gerçek PACS entegrasyonu bulunmamaktadır. Görüntüler NIH Chest X-ray veri setinden alınmıştır.
-                            Rapor ve DICOM dışa aktarma özellikleri aktif değildir.
+                            This system does not have real PACS integration. Images are from the NIH Chest X-ray dataset.
+                            Report and DICOM export features are not active.
                         </p>
                     </div>
                 </div>
@@ -120,29 +120,29 @@ const PatientDetailView = ({ patient, onBack, returnToResults }) => {
                 <div className="flex items-end justify-between border-b border-[var(--border)] pb-6">
                     <div>
                         <div className="flex items-center gap-4 mb-2">
-                            <h1 className="text-4xl font-bold text-[var(--text-main)]">Hasta #PT-{displayData.id}</h1>
+                            <h1 className="text-4xl font-bold text-[var(--text-main)]">Patient #PT-{displayData.id}</h1>
                             <span className="px-3 py-1 bg-[var(--bg-card)] border border-[var(--border)] rounded-full text-sm text-[var(--text-muted)]">
-                                {displayData.gender === 'F' || displayData.gender === 'Kadın' ? 'Kadın' : 
-                                 displayData.gender === 'M' || displayData.gender === 'Erkek' ? 'Erkek' : displayData.gender}, {displayData.age} Yaş
+                                {displayData.gender === 'F' || displayData.gender === 'Female' ? 'Female' : 
+                                 displayData.gender === 'M' || displayData.gender === 'Male' ? 'Male' : displayData.gender}, {displayData.age} Years Old
                             </span>
                         </div>
                         <p className="text-[var(--text-muted)]">
-                            Son ziyaret: {displayData.scans[0]?.date || '2023-11-15'}
-                            {displayData.imageCount > 0 && ` • ${displayData.imageCount} görüntü`}
+                            Last visit: {displayData.scans[0]?.date || '2023-11-15'}
+                            {displayData.imageCount > 0 && ` • ${displayData.imageCount} images`}
                         </p>
                     </div>
                     <div className="flex gap-3">
                         <button 
-                            onClick={() => alert('Rapor oluşturma özelliği henüz aktif değil.')}
+                            onClick={() => alert('Report generation feature is not yet active.')}
                             className="btn bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)]"
                         >
-                            Rapor Oluştur
+                            Generate Report
                         </button>
                         <button 
-                            onClick={() => alert('DICOM dışa aktarma özelliği henüz aktif değil.')}
+                            onClick={() => alert('DICOM export feature is not yet active.')}
                             className="btn border border-[var(--border)] hover:bg-[var(--bg-card-hover)] text-[var(--text-main)]"
                         >
-                            DICOM İndir
+                            Download DICOM
                         </button>
                     </div>
                 </div>
@@ -153,11 +153,11 @@ const PatientDetailView = ({ patient, onBack, returnToResults }) => {
                     <div className="col-span-8 space-y-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <h2 className="text-xl font-bold text-[var(--text-main)]">Röntgen Geçmişi</h2>
-                                <p className="text-xs text-[var(--text-muted)] mt-1">Bu hastanın tüm röntgen görüntüleri ve analiz sonuçları</p>
+                                <h2 className="text-xl font-bold text-[var(--text-main)]">X-Ray History</h2>
+                                <p className="text-xs text-[var(--text-muted)] mt-1">All X-ray images and analysis results for this patient</p>
                             </div>
                             {displayData.scans.length > 4 && (
-                                <button className="text-sm text-[var(--primary)] hover:underline">Tümünü Gör</button>
+                                <button className="text-sm text-[var(--primary)] hover:underline">View All</button>
                             )}
                         </div>
 
@@ -169,7 +169,7 @@ const PatientDetailView = ({ patient, onBack, returnToResults }) => {
                                             {scan.imageUrl ? (
                                                 <img 
                                                     src={scan.imageUrl}
-                                                    alt={`Tarama ${scan.id}`}
+                                                    alt={`Scan ${scan.id}`}
                                                     className="w-full h-full object-cover grayscale group-hover:scale-105 transition-transform"
                                                     onError={(e) => {
                                                         e.target.style.display = 'none';
@@ -184,19 +184,19 @@ const PatientDetailView = ({ patient, onBack, returnToResults }) => {
                                                     </svg>
                                                 </div>
                                             )}
-                                            {/* Çekim türü etiketi */}
-                                            <div className="absolute top-2 right-2 px-2 py-0.5 bg-black/70 text-white text-[10px] rounded backdrop-blur-sm" title="Çekim türü: PA (Posterior-Anterior) = Arkadan öne çekim, en yaygın göğüs röntgeni pozisyonu">
+                                            {/* Scan type label */}
+                                            <div className="absolute top-2 right-2 px-2 py-0.5 bg-black/70 text-white text-[10px] rounded backdrop-blur-sm" title="Scan type: PA (Posterior-Anterior) = Back to front shot, most common chest X-ray position">
                                                 {scan.type}
                                             </div>
                                         </div>
                                         <div className="flex justify-between items-center">
                                             <span className="font-mono text-sm text-[var(--text-muted)]">{scan.date}</span>
-                                            {/* Normal/Anormal durumu */}
+                                            {/* Normal/Abnormal status */}
                                             <span 
                                                 className={`text-xs px-2 py-0.5 rounded ${scan.status === 'Abnormal' ? 'bg-red-500/20 text-red-300' : 'bg-green-500/20 text-green-300'}`}
-                                                title={scan.status === 'Abnormal' ? 'Bu görüntüde anormal bulgu tespit edildi' : 'Bu görüntüde anormal bulgu yok'}
+                                                title={scan.status === 'Abnormal' ? 'Abnormal findings detected in this image' : 'No abnormal findings in this image'}
                                             >
-                                                {scan.status === 'Abnormal' ? 'Anormal' : 'Normal'}
+                                                {scan.status === 'Abnormal' ? 'Abnormal' : 'Normal'}
                                             </span>
                                         </div>
                                         {scan.findings && scan.findings !== 'No Finding' && (
@@ -213,17 +213,17 @@ const PatientDetailView = ({ patient, onBack, returnToResults }) => {
                                         <circle cx="8.5" cy="8.5" r="1.5"/>
                                         <polyline points="21 15 16 10 5 21"/>
                                     </svg>
-                                    <p>Bu hasta için röntgen verisi bulunamadı</p>
+                                    <p>No X-ray data found for this patient</p>
                                 </div>
                             )}
                         </div>
                         
-                        {/* All Findings - Açıklamalı */}
+                        {/* All Findings - With Descriptions */}
                         {displayData.allFindings.length > 0 && (
                             <div className="card p-4">
                                 <div className="mb-3">
-                                    <h3 className="font-bold text-[var(--text-main)]">Tespit Edilen Tüm Bulgular</h3>
-                                    <p className="text-xs text-[var(--text-muted)]">Bu hastanın tüm röntgenlerinde tespit edilen bulgular</p>
+                                    <h3 className="font-bold text-[var(--text-main)]">All Detected Findings</h3>
+                                    <p className="text-xs text-[var(--text-muted)]">Findings detected across all X-rays for this patient</p>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
                                     {displayData.allFindings.map((finding, i) => (
@@ -234,7 +234,7 @@ const PatientDetailView = ({ patient, onBack, returnToResults }) => {
                                                     ? 'bg-green-500/20 text-green-300' 
                                                     : 'bg-orange-500/20 text-orange-300'
                                             }`}
-                                            title={getMedicalDescription(finding) || 'Tıbbi bulgu'}
+                                            title={getMedicalDescription(finding) || 'Medical finding'}
                                         >
                                             {translateMedicalTerm(finding)}
                                         </span>
@@ -249,24 +249,24 @@ const PatientDetailView = ({ patient, onBack, returnToResults }) => {
                         <div className="card p-6">
                             <h3 className="font-bold text-[var(--text-main)] mb-4 flex items-center gap-2">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /><path d="M16 13H8" /><path d="M16 17H8" /><path d="M10 9H8" /></svg>
-                                Tanı Geçmişi
+                                Diagnosis History
                             </h3>
-                            <p className="text-xs text-[var(--text-muted)] mb-4">Yapay zeka tarafından tespit edilen tanılar</p>
+                            <p className="text-xs text-[var(--text-muted)] mb-4">Diagnoses detected by artificial intelligence</p>
                             <div className="space-y-4 relative before:absolute before:left-1.5 before:top-2 before:bottom-2 before:w-px before:bg-[var(--border)]">
                                 {displayData.diagnosisHistory.map((dx, i) => (
                                     <div key={i} className="relative pl-6">
                                         <div className="absolute left-0 top-1.5 w-3 h-3 bg-[var(--primary)] rounded-full border-2 border-[var(--bg-card)]"></div>
                                         <p className="text-xs text-[var(--text-muted)] mb-1 font-mono">{dx.date}</p>
                                         <p className="font-bold text-[var(--text-main)]">{translateMedicalTerm(dx.diagnosis)}</p>
-                                        <p className="text-xs text-[var(--text-muted)]">Yapay Zeka Analizi</p>
+                                        <p className="text-xs text-[var(--text-muted)]">AI Analysis</p>
                                     </div>
                                 ))}
                             </div>
                         </div>
                         
-                        {/* Primary Diagnosis Card - Açıklamalı */}
+                        {/* Primary Diagnosis Card - With Description */}
                         <div className="card p-6 bg-gradient-to-br from-[var(--primary)]/10 to-transparent border-[var(--primary)]/30">
-                            <h3 className="font-bold text-[var(--text-main)] mb-2">Ana Tanı</h3>
+                            <h3 className="font-bold text-[var(--text-main)] mb-2">Primary Diagnosis</h3>
                             <p className="text-2xl font-bold text-[var(--primary)]">{translateMedicalTerm(displayData.diagnosis)}</p>
                             {getMedicalDescription(displayData.diagnosis) && (
                                 <p className="text-xs text-[var(--text-muted)] mt-2 bg-[var(--bg-dark)] p-2 rounded">
@@ -274,9 +274,9 @@ const PatientDetailView = ({ patient, onBack, returnToResults }) => {
                                 </p>
                             )}
                             <p className="text-sm text-[var(--text-muted)] mt-3">
-                                Yaş: {displayData.age} • Cinsiyet: {
-                                    displayData.gender === 'F' || displayData.gender === 'Kadın' ? 'Kadın' : 
-                                    displayData.gender === 'M' || displayData.gender === 'Erkek' ? 'Erkek' : displayData.gender
+                                Age: {displayData.age} • Gender: {
+                                    displayData.gender === 'F' || displayData.gender === 'Female' ? 'Female' : 
+                                    displayData.gender === 'M' || displayData.gender === 'Male' ? 'Male' : displayData.gender
                                 }
                             </p>
                         </div>

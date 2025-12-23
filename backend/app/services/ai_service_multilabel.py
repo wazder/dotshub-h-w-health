@@ -42,46 +42,64 @@ DISEASE_LABELS = [
 
 NUM_CLASSES = len(DISEASE_LABELS)
 
-# Turkish label translations (for UI display)
-LABEL_TR = {
-    "No Finding": "Normal - Bulgu Yok",
-    "Atelectasis": "Atelektazi",
-    "Cardiomegaly": "Kardiyomegali",
-    "Effusion": "Plevral Efüzyon",
-    "Infiltration": "İnfiltrasyon",
-    "Mass": "Kitle",
-    "Nodule": "Nodül",
-    "Pneumonia": "Pnömoni (Zatürre)",
-    "Pneumothorax": "Pnömotoraks",
-    "Consolidation": "Konsolidasyon",
-    "Edema": "Pulmoner Ödem",
-    "Emphysema": "Amfizem",
-    "Fibrosis": "Fibrozis",
-    "Pleural_Thickening": "Plevral Kalınlaşma",
-    "Hernia": "Herni"
+# English label descriptions (for UI display)
+LABEL_DESCRIPTIONS = {
+    "No Finding": "Normal - No abnormalities detected",
+    "Atelectasis": "Atelectasis",
+    "Cardiomegaly": "Cardiomegaly",
+    "Effusion": "Pleural Effusion",
+    "Infiltration": "Infiltration",
+    "Mass": "Mass",
+    "Nodule": "Nodule",
+    "Pneumonia": "Pneumonia",
+    "Pneumothorax": "Pneumothorax",
+    "Consolidation": "Consolidation",
+    "Edema": "Pulmonary Edema",
+    "Emphysema": "Emphysema",
+    "Fibrosis": "Fibrosis",
+    "Pleural_Thickening": "Pleural Thickening",
+    "Hernia": "Hernia"
 }
 
-# Disease descriptions (Turkish - for UI display)
+# Disease descriptions (English - for UI display)
 DISEASE_DESCRIPTIONS = {
-    "Atelectasis": "Akciğerin bir bölümünün çökmesi veya hava kaybetmesi.",
-    "Cardiomegaly": "Kalp büyümesi, kalp yetmezliği belirtisi olabilir.",
-    "Effusion": "Akciğer zarları arasında sıvı birikimi (plevral efüzyon).",
-    "Infiltration": "Akciğer dokusuna sıvı veya hücre birikimi. Enfeksiyon belirtisi olabilir.",
-    "Mass": "Akciğerde büyük lezyon. İleri tetkik gerektirir.",
-    "Nodule": "Akciğerde küçük yuvarlak lezyon. Takip gerektirebilir.",
-    "Pneumonia": "Akciğer enfeksiyonu, tedavi gerektirir.",
-    "Pneumothorax": "Akciğer ile göğüs duvarı arasında hava birikimi. ACİL müdahale gerektirebilir!",
-    "Consolidation": "Akciğer dokusunun yoğunlaşması, genellikle zatürre belirtisi.",
-    "Edema": "Akciğerlerde sıvı birikimi.",
-    "Emphysema": "Akciğer hava keseciklerinin hasar görmesi, KOAH'ın bir türü.",
-    "Fibrosis": "Akciğer dokusunun sertleşmesi ve skarlaşması.",
-    "Pleural_Thickening": "Akciğer zarının kalınlaşması.",
-    "Hernia": "Diyafram fıtığı."
+    "Atelectasis": "Collapse or closure of a lung resulting in reduced or absent gas exchange.",
+    "Cardiomegaly": "Enlarged heart, may indicate heart failure.",
+    "Effusion": "Fluid accumulation between the pleural layers (pleural effusion).",
+    "Infiltration": "Accumulation of fluid or cells in lung tissue. May indicate infection.",
+    "Mass": "Large lesion in the lung. Further investigation required.",
+    "Nodule": "Small round lesion in the lung. May require follow-up.",
+    "Pneumonia": "Lung infection, requires treatment.",
+    "Pneumothorax": "Air accumulation between lung and chest wall. May require EMERGENCY intervention!",
+    "Consolidation": "Lung tissue becoming denser, usually indicates pneumonia.",
+    "Edema": "Fluid accumulation in the lungs.",
+    "Emphysema": "Damage to lung air sacs, a type of COPD.",
+    "Fibrosis": "Scarring and stiffening of lung tissue.",
+    "Pleural_Thickening": "Thickening of the pleural membrane.",
+    "Hernia": "Diaphragmatic hernia."
 }
 
 # ImageNet normalization
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
+
+# Disease-specific thresholds (critical conditions have lower thresholds)
+DISEASE_THRESHOLDS = {
+    "Pneumothorax": 0.35,      # Critical - emergency condition
+    "Mass": 0.40,              # Important - needs follow-up
+    "Nodule": 0.40,            # Important - needs follow-up
+    "Pneumonia": 0.45,         # Common, needs treatment
+    "Cardiomegaly": 0.45,      # Cardiac condition
+    "Effusion": 0.45,          # Common finding
+    "Atelectasis": 0.50,       # Default
+    "Infiltration": 0.50,      # Default
+    "Consolidation": 0.50,     # Default
+    "Edema": 0.50,             # Default
+    "Emphysema": 0.50,         # Default
+    "Fibrosis": 0.50,          # Default
+    "Pleural_Thickening": 0.50, # Default
+    "Hernia": 0.50,            # Default
+}
 
 
 class ChestXrayMultiLabelModel(nn.Module):
@@ -266,12 +284,16 @@ class MultiLabelAIService:
                 prob = float(probs[i])
                 all_predictions[label] = round(prob, 4)
                 
-                if prob >= threshold:
+                # Use disease-specific threshold, fallback to default
+                disease_threshold = DISEASE_THRESHOLDS.get(label, threshold)
+                
+                if prob >= disease_threshold:
                     detected_diseases.append({
                         "label": label,
-                        "label_tr": LABEL_TR.get(label, label),
+                        "label_tr": LABEL_DESCRIPTIONS.get(label, label),
                         "probability": round(prob, 4),
-                        "description": DISEASE_DESCRIPTIONS.get(label, "")
+                        "description": DISEASE_DESCRIPTIONS.get(label, ""),
+                        "threshold_used": disease_threshold  # For transparency
                     })
             
             # Sort by probability
@@ -280,7 +302,7 @@ class MultiLabelAIService:
             # 7. Determine primary result
             if len(detected_diseases) == 0:
                 primary_label = "No Finding"
-                primary_label_tr = "Normal - Bulgu Yok"
+                primary_label_tr = "Normal - No abnormalities detected"
                 is_pathology = False
                 confidence = "High"
             else:
@@ -365,7 +387,7 @@ class MultiLabelAIService:
         """Returns information about a disease."""
         return {
             "label": label,
-            "label_tr": LABEL_TR.get(label, label),
+            "label_tr": LABEL_DESCRIPTIONS.get(label, label),
             "description": DISEASE_DESCRIPTIONS.get(label, "Information not available.")
         }
     

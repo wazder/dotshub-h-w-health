@@ -56,9 +56,9 @@ class DataService:
         patient = self.get_patient_history(patient_id)
         
         if patient:
-            return patient.get('history', f"Hasta {patient_id} için detay bulunamadı.")
+            return patient.get('history', f"No details found for patient {patient_id}.")
         
-        return f"Hasta {patient_id} kayıtlarda bulunamadı."
+        return f"Patient {patient_id} not found in records."
     
     def list_all_patients(self) -> List[str]:
         """

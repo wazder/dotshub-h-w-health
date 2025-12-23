@@ -16,13 +16,18 @@ API Endpoints:
 
 import os
 import logging
+from logging.handlers import RotatingFileHandler
 from datetime import datetime
 from typing import Optional
+from collections import defaultdict
+import time
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, status
+from fastapi import FastAPI, File, UploadFile, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from dotenv import load_dotenv
+
+import torch  # For error handling
 
 from .models import (
     AnalysisResponse,
@@ -46,10 +51,32 @@ from .services.data_service import data_service
 # Load .env file
 load_dotenv()
 
-# Logging configuration
+# Create logs directory
+LOGS_DIR = os.path.join(os.path.dirname(__file__), '..', 'logs')
+os.makedirs(LOGS_DIR, exist_ok=True)
+
+# Logging configuration with file handler
+log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# Console handler
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(log_formatter)
+console_handler.setLevel(logging.INFO)
+
+# File handler with rotation (max 10MB, keep 5 backups)
+file_handler = RotatingFileHandler(
+    os.path.join(LOGS_DIR, 'api.log'),
+    maxBytes=10*1024*1024,  # 10MB
+    backupCount=5,
+    encoding='utf-8'
+)
+file_handler.setFormatter(log_formatter)
+file_handler.setLevel(logging.INFO)
+
+# Configure root logger
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    handlers=[console_handler, file_handler]
 )
 logger = logging.getLogger(__name__)
 
@@ -92,6 +119,70 @@ app.add_middleware(
     expose_headers=["Content-Length", "X-Request-ID"],
     max_age=600
 )
+
+
+# ==================== Rate Limiting ====================
+
+# Simple in-memory rate limiter
+class RateLimiter:
+    def __init__(self, requests_per_minute: int = 30):
+        self.requests_per_minute = requests_per_minute
+        self.requests = defaultdict(list)
+    
+    def is_allowed(self, client_ip: str) -> bool:
+        now = time.time()
+        minute_ago = now - 60
+        
+        # Clean old requests
+        self.requests[client_ip] = [
+            req_time for req_time in self.requests[client_ip] 
+            if req_time > minute_ago
+        ]
+        
+        # Check limit
+        if len(self.requests[client_ip]) >= self.requests_per_minute:
+            return False
+        
+        self.requests[client_ip].append(now)
+        return True
+    
+    def get_remaining(self, client_ip: str) -> int:
+        now = time.time()
+        minute_ago = now - 60
+        current_requests = len([
+            req_time for req_time in self.requests[client_ip] 
+            if req_time > minute_ago
+        ])
+        return max(0, self.requests_per_minute - current_requests)
+
+rate_limiter = RateLimiter(requests_per_minute=30)  # 30 requests per minute
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    # Skip rate limiting for health check and docs
+    if request.url.path in ["/api/health", "/docs", "/redoc", "/openapi.json", "/"]:
+        return await call_next(request)
+    
+    client_ip = request.client.host if request.client else "unknown"
+    
+    if not rate_limiter.is_allowed(client_ip):
+        logger.warning(f"Rate limit exceeded for {client_ip}")
+        return JSONResponse(
+            status_code=429,
+            content={
+                "success": False,
+                "error": "Too many requests",
+                "detail": "Please wait a minute and try again.",
+                "retry_after_seconds": 60
+            }
+        )
+    
+    # Add rate limit headers
+    response = await call_next(request)
+    response.headers["X-RateLimit-Remaining"] = str(rate_limiter.get_remaining(client_ip))
+    response.headers["X-RateLimit-Limit"] = str(rate_limiter.requests_per_minute)
+    return response
 
 
 # ==================== Main Analysis Endpoint ====================
@@ -203,18 +294,50 @@ async def analyze_image(
         
     except HTTPException:
         raise
+    except FileNotFoundError as e:
+        logger.error(f"File not found: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Required file not found. Please contact system administrator."
+        )
+    except torch.cuda.OutOfMemoryError:
+        logger.error("GPU memory exhausted")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="GPU memory insufficient. Please try again later."
+        )
+    except ValueError as e:
+        logger.error(f"Value error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid data: {str(e)}"
+        )
     except Exception as e:
         logger.error(f"Analysis error: {e}", exc_info=True)
+        
+        # More user-friendly error messages
+        error_msg = str(e).lower()
+        if "model" in error_msg or "load" in error_msg:
+            detail = "AI model could not be loaded. Please contact system administrator."
+        elif "image" in error_msg or "format" in error_msg:
+            detail = "Image format not recognized. Please upload a DICOM, PNG, or JPEG file."
+        elif "memory" in error_msg:
+            detail = "Insufficient memory. Please try a smaller image."
+        elif "timeout" in error_msg:
+            detail = "Operation timed out. Please try again."
+        else:
+            detail = f"An error occurred during analysis: {str(e)}"
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error during analysis: {str(e)}"
+            detail=detail
         )
 
 
 def _generate_summary(ai_analysis: AIAnalysisResult, similar_case: Optional[SimilarCase], total_matches: int = 0) -> str:
     """Generates analysis summary."""
     if ai_analysis.label == "No Finding":
-        detection = "Normal findings"
+        detection = "Normal - No findings"
     elif ai_analysis.label in ["Mass|Nodule", "Pathology"]:
         detection = "Pathological findings detected"
     else:
@@ -228,7 +351,7 @@ def _generate_summary(ai_analysis: AIAnalysisResult, similar_case: Optional[Simi
     if similar_case and total_matches > 0:
         parts.append(
             f"Closest case: Patient {similar_case.patient_id} "
-            f"({similar_case.similarity_score:.0%} similarity)"
+            f"({similar_case.similarity_score*100:.0f}% similarity)"
         )
         if total_matches > 1:
             parts.append(f"Total {total_matches} similar cases found")
@@ -296,29 +419,25 @@ async def health_check():
 )
 async def get_patient(patient_id: str):
     """Patient information endpoint."""
-    from datetime import datetime, timedelta
     
     patient = dataset_service.get_patient_info(patient_id)
     
     if patient:
         images = patient.get('images', [])
         scans = []
-        today = datetime.now()
         
         for idx, image_id in enumerate(images[:6]):
             image_info = dataset_service.get_image_info(image_id)
             if image_info:
-                scan_date = today - timedelta(weeks=idx)
+                # NIH dataset doesn't have actual scan dates
                 scans.append({
                     'id': image_id,
-                    'date': scan_date.strftime('%Y-%m-%d'),
+                    'date': 'Date Unknown',  # Real date not available in NIH dataset
                     'type': image_info.get('view_position', 'PA'),
                     'status': 'Abnormal' if image_info.get('has_pathology') else 'Normal',
                     'imageUrl': f"/api/images/{image_id}",
                     'findings': image_info.get('finding_labels', '')
                 })
-        
-        diagnosis_date = today - timedelta(weeks=len(scans)) if scans else today
         
         return {
             "success": True,
@@ -327,9 +446,9 @@ async def get_patient(patient_id: str):
                 "scans": scans,
                 "diagnosisHistory": [
                     {
-                        "date": diagnosis_date.strftime('%Y-%m-%d'),
+                        "date": "Date Unknown",  # Real date not available
                         "diagnosis": patient.get('diagnosis', 'No Information'),
-                        "physician": "Radiology AI System"
+                        "physician": "NIH Dataset - Retrospective Data"
                     }
                 ]
             }

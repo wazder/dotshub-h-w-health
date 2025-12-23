@@ -103,13 +103,13 @@ class DatasetService:
                                     'Emphysema', 'Fibrosis', 'Pleural_Thickening', 'Hernia']
                     has_any_disease = any(disease in finding_labels for disease in all_diseases)
                     
-                    # Image info - gender in Turkish for UI
+                    # Image info - gender in English
                     image_info = {
                         'image_id': image_id,
                         'patient_id': patient_id,
                         'finding_labels': finding_labels,
                         'age': age,
-                        'gender': 'Erkek' if gender == 'M' else 'Kadın' if gender == 'F' else gender,
+                        'gender': 'Male' if gender == 'M' else 'Female' if gender == 'F' else gender,
                         'view_position': view_pos,
                         'has_pathology': has_any_disease
                     }
@@ -256,7 +256,7 @@ class DatasetService:
         finding_counts = defaultdict(int)
         age_sum = 0
         age_count = 0
-        gender_counts = {'Erkek': 0, 'Kadın': 0}
+        gender_counts = {'Male': 0, 'Female': 0}
         
         for patient in self._patient_cache.values():
             diagnosis = patient.get('diagnosis', 'Unknown')

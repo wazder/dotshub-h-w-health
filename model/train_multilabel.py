@@ -2,19 +2,19 @@
 NIH Chest X-ray Multi-Label Classification Training Script
 ==========================================================
 
-14 hastalık için multi-label sınıflandırma modeli eğitimi.
-RunPod veya GPU sunucusunda çalıştırılmak üzere tasarlandı.
+Multi-label classification model training for 14 diseases.
+Designed to run on RunPod or GPU servers.
 
-Hastalıklar:
+Diseases:
 - Atelectasis, Cardiomegaly, Effusion, Infiltration, Mass
 - Nodule, Pneumonia, Pneumothorax, Consolidation, Edema
 - Emphysema, Fibrosis, Pleural_Thickening, Hernia
-- (No Finding ayrı bir sınıf olarak ele alınır)
+- (No Finding is treated as a separate class)
 
-Kullanım:
+Usage:
     python train_multilabel.py --data_dir /path/to/data --epochs 50
 
-RunPod için:
+For RunPod:
     python train_multilabel.py --data_dir /workspace/data --epochs 50 --batch_size 32
 """
 
@@ -40,7 +40,7 @@ from torchvision import transforms, models
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score, f1_score, precision_recall_fscore_support
 
-# Logging ayarları
+# Logging settings
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -51,31 +51,31 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ==================== Sabitler ====================
+# ==================== Constants ====================
 
-# NIH Chest X-ray 14 hastalık listesi
+# NIH Chest X-ray 14 disease list
 DISEASE_LABELS = [
     "Atelectasis", "Cardiomegaly", "Effusion", "Infiltration", "Mass",
     "Nodule", "Pneumonia", "Pneumothorax", "Consolidation", "Edema",
     "Emphysema", "Fibrosis", "Pleural_Thickening", "Hernia"
 ]
 
-# Türkçe etiketler (UI için)
+# English labels (for UI)
 LABEL_TR = {
-    "Atelectasis": "Atelektazi",
-    "Cardiomegaly": "Kardiyomegali", 
-    "Effusion": "Plevral Efüzyon",
-    "Infiltration": "İnfiltrasyon",
-    "Mass": "Kitle",
-    "Nodule": "Nodül",
-    "Pneumonia": "Pnömoni (Zatürre)",
-    "Pneumothorax": "Pnömotoraks",
-    "Consolidation": "Konsolidasyon",
-    "Edema": "Pulmoner Ödem",
-    "Emphysema": "Amfizem",
-    "Fibrosis": "Fibrozis",
-    "Pleural_Thickening": "Plevral Kalınlaşma",
-    "Hernia": "Herni"
+    "Atelectasis": "Atelectasis",
+    "Cardiomegaly": "Cardiomegaly", 
+    "Effusion": "Pleural Effusion",
+    "Infiltration": "Infiltration",
+    "Mass": "Mass",
+    "Nodule": "Nodule",
+    "Pneumonia": "Pneumonia",
+    "Pneumothorax": "Pneumothorax",
+    "Consolidation": "Consolidation",
+    "Edema": "Pulmonary Edema",
+    "Emphysema": "Emphysema",
+    "Fibrosis": "Fibrosis",
+    "Pleural_Thickening": "Pleural Thickening",
+    "Hernia": "Hernia"
 }
 
 NUM_CLASSES = len(DISEASE_LABELS)
@@ -102,42 +102,42 @@ class ChestXrayDataset(Dataset):
     ):
         """
         Args:
-            csv_path: Data_Entry_2017.csv dosyasının yolu
-            image_dir: Görüntülerin bulunduğu klasör
-            image_list: Kullanılacak görüntü listesi (train/val/test split için)
-            transform: Görüntü dönüşümleri
-            target_size: Hedef görüntü boyutu
+            csv_path: Path to Data_Entry_2017.csv file
+            image_dir: Folder containing images
+            image_list: List of images to use (for train/val/test split)
+            transform: Image transformations
+            target_size: Target image size
         """
         self.image_dir = Path(image_dir)
         self.transform = transform
         self.target_size = target_size
         
-        # CSV'yi oku
-        logger.info(f"CSV yükleniyor: {csv_path}")
+        # Read CSV
+        logger.info(f"Loading CSV: {csv_path}")
         self.df = pd.read_csv(csv_path)
         
         # Image list varsa filtrele
         if image_list is not None:
             self.df = self.df[self.df['Image Index'].isin(image_list)]
         
-        # Görüntü yollarını kontrol et ve geçerli olanları tut
+        # Check image paths and keep valid ones
         valid_indices = []
-        for idx, row in tqdm(self.df.iterrows(), total=len(self.df), desc="Görüntüler kontrol ediliyor"):
+        for idx, row in tqdm(self.df.iterrows(), total=len(self.df), desc="Checking images"):
             img_path = self._find_image(row['Image Index'])
             if img_path is not None:
                 valid_indices.append(idx)
         
         self.df = self.df.loc[valid_indices].reset_index(drop=True)
-        logger.info(f"Toplam geçerli görüntü: {len(self.df)}")
+        logger.info(f"Total valid images: {len(self.df)}")
         
         # Multi-label encoding
         self.labels = self._encode_labels()
         
-        # Sınıf ağırlıklarını hesapla (class imbalance için)
+        # Calculate class weights (for class imbalance)
         self.class_weights = self._calculate_class_weights()
     
     def _find_image(self, image_name: str) -> Optional[Path]:
-        """Görüntü dosyasını bul (farklı klasör yapılarını destekler)."""
+        """Find image file (supports different folder structures)."""
         possible_paths = [
             self.image_dir / image_name,
             self.image_dir / "images" / image_name,
@@ -151,7 +151,7 @@ class ChestXrayDataset(Dataset):
         return None
     
     def _encode_labels(self) -> np.ndarray:
-        """Finding Labels'ı multi-hot encoding'e çevir."""
+        """Convert Finding Labels to multi-hot encoding."""
         labels = np.zeros((len(self.df), NUM_CLASSES), dtype=np.float32)
         
         for idx, row in self.df.iterrows():
@@ -165,17 +165,17 @@ class ChestXrayDataset(Dataset):
         return labels
     
     def _calculate_class_weights(self) -> torch.Tensor:
-        """Sınıf dengesizliği için ağırlıkları hesapla."""
+        """Calculate weights for class imbalance."""
         pos_counts = self.labels.sum(axis=0)
         neg_counts = len(self.labels) - pos_counts
         
-        # pos_weight = neg_count / pos_count (BCEWithLogitsLoss için)
+        # pos_weight = neg_count / pos_count (for BCEWithLogitsLoss)
         weights = neg_counts / (pos_counts + 1e-5)
-        weights = np.clip(weights, 1.0, 50.0)  # Aşırı ağırlıkları sınırla
+        weights = np.clip(weights, 1.0, 50.0)  # Limit extreme weights
         
-        logger.info("Sınıf ağırlıkları:")
+        logger.info("Class weights:")
         for i, label in enumerate(DISEASE_LABELS):
-            logger.info(f"  {label}: {weights[i]:.2f} (pozitif: {int(pos_counts[i])}, negatif: {int(neg_counts[i])})")
+            logger.info(f"  {label}: {weights[i]:.2f} (positive: {int(pos_counts[i])}, negative: {int(neg_counts[i])})")
         
         return torch.tensor(weights, dtype=torch.float32)
     
@@ -186,14 +186,14 @@ class ChestXrayDataset(Dataset):
         row = self.df.iloc[idx]
         img_path = self._find_image(row['Image Index'])
         
-        # Görüntüyü yükle
+        # Load image
         image = Image.open(img_path).convert('RGB')
         
-        # Resize (eğer gerekiyorsa)
+        # Resize (if needed)
         if image.size != self.target_size:
             image = image.resize(self.target_size, Image.LANCZOS)
         
-        # Transform uygula
+        # Apply transform
         if self.transform:
             image = self.transform(image)
         
@@ -207,8 +207,8 @@ class ChestXrayDataset(Dataset):
 
 class ChestXrayMultiLabelModel(nn.Module):
     """
-    ResNet50 tabanlı multi-label sınıflandırma modeli.
-    14 hastalık için ayrı sigmoid çıktıları.
+    ResNet50-based multi-label classification model.
+    Separate sigmoid outputs for 14 diseases.
     """
     
     def __init__(
@@ -225,11 +225,11 @@ class ChestXrayMultiLabelModel(nn.Module):
         else:
             self.backbone = models.resnet50(weights=None)
         
-        # Son FC katmanını değiştir
+        # Replace the last FC layer
         num_features = self.backbone.fc.in_features
-        self.backbone.fc = nn.Identity()  # FC'yi kaldır
+        self.backbone.fc = nn.Identity()  # Remove FC
         
-        # Yeni classifier head
+        # New classifier head
         self.classifier = nn.Sequential(
             nn.Dropout(dropout),
             nn.Linear(num_features, 512),
@@ -238,12 +238,12 @@ class ChestXrayMultiLabelModel(nn.Module):
             nn.Linear(512, num_classes)
         )
         
-        # Embedding çıkarmak için
+        # For embedding extraction
         self.embedding = None
         self._register_hook()
     
     def _register_hook(self):
-        """Embedding çıkarmak için hook."""
+        """Hook for embedding extraction."""
         def hook(module, input, output):
             self.embedding = output.squeeze()
         self.backbone.avgpool.register_forward_hook(hook)
@@ -260,7 +260,7 @@ class ChestXrayMultiLabelModel(nn.Module):
 # ==================== Training Functions ====================
 
 def get_transforms(target_size: int = 224, augment: bool = True):
-    """Eğitim ve validation için transform'ları döndür."""
+    """Return transforms for training and validation."""
     
     if augment:
         train_transform = transforms.Compose([
@@ -297,7 +297,7 @@ def train_epoch(
     device: torch.device,
     scaler: Optional[GradScaler] = None
 ) -> Tuple[float, float]:
-    """Bir epoch eğitim."""
+    """One epoch of training."""
     model.train()
     total_loss = 0.0
     all_preds = []
@@ -337,7 +337,7 @@ def train_epoch(
     
     avg_loss = total_loss / len(dataloader)
     
-    # Macro AUC hesapla
+    # Calculate Macro AUC
     all_preds = np.vstack(all_preds)
     all_labels = np.vstack(all_labels)
     
@@ -417,7 +417,7 @@ def save_checkpoint(
     best_auc: float,
     save_path: str
 ):
-    """Model checkpoint kaydet."""
+    """Save model checkpoint."""
     torch.save({
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
@@ -426,13 +426,13 @@ def save_checkpoint(
         'disease_labels': DISEASE_LABELS,
         'num_classes': NUM_CLASSES
     }, save_path)
-    logger.info(f"Checkpoint kaydedildi: {save_path}")
+    logger.info(f"Checkpoint saved: {save_path}")
 
 
 # ==================== Main Training ====================
 
 def main(args):
-    """Ana eğitim fonksiyonu."""
+    """Main training function."""
     
     # Device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -446,7 +446,7 @@ def main(args):
     data_dir = Path(args.data_dir)
     csv_path = data_dir / "Data_Entry_2017.csv"
     
-    # Image directory - birden fazla olası yol
+    # Image directory - multiple possible paths
     image_dir = None
     for possible_dir in [
         data_dir / "images",
@@ -459,12 +459,12 @@ def main(args):
             break
     
     if image_dir is None:
-        raise ValueError(f"Görüntü klasörü bulunamadı: {data_dir}")
+        raise ValueError(f"Image folder not found: {data_dir}")
     
     logger.info(f"CSV: {csv_path}")
     logger.info(f"Images: {image_dir}")
     
-    # Train/val/test split dosyalarını oku
+    # Read train/val/test split files
     train_list_path = data_dir / "train_val_list_NIH.txt"
     test_list_path = data_dir / "test_list_NIH.txt"
     
@@ -480,7 +480,7 @@ def main(args):
         )
         logger.info(f"Train: {len(train_list)}, Val: {len(val_list)}, Test: {len(test_list)}")
     else:
-        logger.warning("Train/test split dosyaları bulunamadı, rastgele bölünecek")
+        logger.warning("Train/test split files not found, will split randomly")
         train_list = val_list = test_list = None
     
     # Transforms
@@ -490,7 +490,7 @@ def main(args):
     )
     
     # Datasets
-    logger.info("Dataset'ler yükleniyor...")
+    logger.info("Loading datasets...")
     train_dataset = ChestXrayDataset(
         csv_path=str(csv_path),
         image_dir=str(image_dir),
@@ -525,7 +525,7 @@ def main(args):
     )
     
     # Model
-    logger.info("Model oluşturuluyor...")
+    logger.info("Creating model...")
     model = ChestXrayMultiLabelModel(
         num_classes=NUM_CLASSES,
         pretrained=True,
@@ -562,7 +562,7 @@ def main(args):
     patience_counter = 0
     
     logger.info("=" * 50)
-    logger.info("Eğitim başlıyor...")
+    logger.info("Training starting...")
     logger.info(f"Epochs: {args.epochs}")
     logger.info(f"Batch size: {args.batch_size}")
     logger.info(f"Learning rate: {args.lr}")
@@ -590,13 +590,13 @@ def main(args):
         logger.info(f"Train Loss: {train_loss:.4f}, Train AUC: {train_auc:.4f}")
         logger.info(f"Val Loss: {val_loss:.4f}, Val AUC: {val_auc:.4f}")
         
-        # Per-class metrics (her 5 epoch'ta bir)
+        # Per-class metrics (every 5 epochs)
         if epoch % 5 == 0:
             logger.info("\nPer-class metrics:")
             for label, m in val_metrics.items():
                 logger.info(f"  {label}: AUC={m['auc']:.3f}, F1={m['f1']:.3f}")
         
-        # Best model kaydet
+        # Save best model
         if val_auc > best_auc:
             best_auc = val_auc
             patience_counter = 0
@@ -605,11 +605,11 @@ def main(args):
                 model, optimizer, epoch, best_auc,
                 str(output_dir / "best_model.pth")
             )
-            logger.info(f"✅ Yeni en iyi model! AUC: {best_auc:.4f}")
+            logger.info(f"✅ New best model! AUC: {best_auc:.4f}")
         else:
             patience_counter += 1
         
-        # Checkpoint (her 10 epoch'ta)
+        # Checkpoint (every 10 epochs)
         if epoch % 10 == 0:
             save_checkpoint(
                 model, optimizer, epoch, best_auc,
@@ -618,12 +618,12 @@ def main(args):
         
         # Early stopping
         if patience_counter >= args.patience:
-            logger.info(f"Early stopping! {args.patience} epoch boyunca iyileşme yok.")
+            logger.info(f"Early stopping! No improvement for {args.patience} epochs.")
             break
     
     logger.info("=" * 50)
-    logger.info(f"Eğitim tamamlandı! En iyi AUC: {best_auc:.4f}")
-    logger.info(f"Model kaydedildi: {output_dir / 'best_model.pth'}")
+    logger.info(f"Training complete! Best AUC: {best_auc:.4f}")
+    logger.info(f"Model saved: {output_dir / 'best_model.pth'}")
     
     # Final metrics'i kaydet
     with open(output_dir / "training_results.txt", 'w') as f:
@@ -640,12 +640,12 @@ if __name__ == "__main__":
     
     # Data arguments
     parser.add_argument("--data_dir", type=str, required=True,
-                       help="Veri setinin bulunduğu klasör (Data_Entry_2017.csv ve images içermeli)")
+                       help="Folder containing the dataset (should include Data_Entry_2017.csv and images)")
     parser.add_argument("--output_dir", type=str, default="./output",
-                       help="Model ve checkpoint'ların kaydedileceği klasör")
+                       help="Folder to save model and checkpoints")
     
     # Training arguments
-    parser.add_argument("--epochs", type=int, default=50, help="Epoch sayısı")
+    parser.add_argument("--epochs", type=int, default=50, help="Number of epochs")
     parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
     parser.add_argument("--weight_decay", type=float, default=1e-5, help="Weight decay")
@@ -653,8 +653,8 @@ if __name__ == "__main__":
     parser.add_argument("--patience", type=int, default=10, help="Early stopping patience")
     
     # Data arguments
-    parser.add_argument("--image_size", type=int, default=224, help="Görüntü boyutu")
-    parser.add_argument("--num_workers", type=int, default=4, help="DataLoader worker sayısı")
+    parser.add_argument("--image_size", type=int, default=224, help="Image size")
+    parser.add_argument("--num_workers", type=int, default=4, help="DataLoader worker count")
     parser.add_argument("--augment", action="store_true", default=True, help="Data augmentation")
     parser.add_argument("--no_augment", action="store_false", dest="augment")
     

@@ -2,10 +2,10 @@
 Multi-Label Model Inference Service
 ====================================
 
-Eğitilen 14-hastalık modelini kullanarak görüntü analizi yapar.
-Bu dosya eğitim sonrası ai_service_real.py ile değiştirilecek.
+Performs image analysis using the trained 14-disease model.
+This file will be replaced with ai_service_real.py after training.
 
-Kullanım:
+Usage:
     from inference_multilabel import MultiLabelInference
     
     model = MultiLabelInference("path/to/best_model.pth")
@@ -27,48 +27,48 @@ from torchvision import transforms, models
 
 logger = logging.getLogger(__name__)
 
-# 14 Hastalık listesi (eğitim sırasıyla aynı)
+# 14 Disease list (same order as training)
 DISEASE_LABELS = [
     "Atelectasis", "Cardiomegaly", "Effusion", "Infiltration", "Mass",
     "Nodule", "Pneumonia", "Pneumothorax", "Consolidation", "Edema",
     "Emphysema", "Fibrosis", "Pleural_Thickening", "Hernia"
 ]
 
-# Türkçe karşılıklar
+# Label descriptions (now using English)
 LABEL_TR = {
-    "No Finding": "Normal - Bulgu Yok",
-    "Atelectasis": "Atelektazi",
-    "Cardiomegaly": "Kardiyomegali", 
-    "Effusion": "Plevral Efüzyon",
-    "Infiltration": "İnfiltrasyon",
-    "Mass": "Kitle",
-    "Nodule": "Nodül",
-    "Pneumonia": "Pnömoni (Zatürre)",
-    "Pneumothorax": "Pnömotoraks",
-    "Consolidation": "Konsolidasyon",
-    "Edema": "Pulmoner Ödem",
-    "Emphysema": "Amfizem",
-    "Fibrosis": "Fibrozis",
-    "Pleural_Thickening": "Plevral Kalınlaşma",
-    "Hernia": "Herni"
+    "No Finding": "Normal - No Finding",
+    "Atelectasis": "Atelectasis",
+    "Cardiomegaly": "Cardiomegaly", 
+    "Effusion": "Pleural Effusion",
+    "Infiltration": "Infiltration",
+    "Mass": "Mass",
+    "Nodule": "Nodule",
+    "Pneumonia": "Pneumonia",
+    "Pneumothorax": "Pneumothorax",
+    "Consolidation": "Consolidation",
+    "Edema": "Pulmonary Edema",
+    "Emphysema": "Emphysema",
+    "Fibrosis": "Fibrosis",
+    "Pleural_Thickening": "Pleural Thickening",
+    "Hernia": "Hernia"
 }
 
-# Hastalık açıklamaları
+# Disease descriptions
 DISEASE_DESCRIPTIONS = {
-    "Atelectasis": "Akciğerin bir bölümünün çökmesi veya hava kaybetmesi.",
-    "Cardiomegaly": "Kalp büyümesi, kalp yetmezliği belirtisi olabilir.",
-    "Effusion": "Akciğer zarları arasında sıvı birikimi (plevral efüzyon).",
-    "Infiltration": "Akciğer dokusuna sıvı veya hücre birikimi. Enfeksiyon belirtisi olabilir.",
-    "Mass": "Akciğerde büyük lezyon. İleri tetkik gerektirir.",
-    "Nodule": "Akciğerde küçük yuvarlak lezyon. Takip gerektirebilir.",
-    "Pneumonia": "Akciğer enfeksiyonu, tedavi gerektirir.",
-    "Pneumothorax": "Akciğer ile göğüs duvarı arasında hava birikimi. ACİL müdahale gerektirebilir.",
-    "Consolidation": "Akciğer dokusunun yoğunlaşması, genellikle zatürre belirtisi.",
-    "Edema": "Akciğerlerde sıvı birikimi.",
-    "Emphysema": "Akciğer hava keseciklerinin hasar görmesi, KOAH'ın bir türü.",
-    "Fibrosis": "Akciğer dokusunun sertleşmesi ve skarlaşması.",
-    "Pleural_Thickening": "Akciğer zarının kalınlaşması.",
-    "Hernia": "Diyafram fıtığı."
+    "Atelectasis": "Partial collapse or air loss in a section of the lung.",
+    "Cardiomegaly": "Heart enlargement, may indicate heart failure.",
+    "Effusion": "Fluid accumulation between lung membranes (pleural effusion).",
+    "Infiltration": "Fluid or cell accumulation in lung tissue. May indicate infection.",
+    "Mass": "Large lesion in the lung. Requires further investigation.",
+    "Nodule": "Small round lesion in the lung. May require follow-up.",
+    "Pneumonia": "Lung infection, requires treatment.",
+    "Pneumothorax": "Air accumulation between lung and chest wall. May require URGENT intervention.",
+    "Consolidation": "Densification of lung tissue, usually indicates pneumonia.",
+    "Edema": "Fluid accumulation in the lungs.",
+    "Emphysema": "Damage to lung air sacs, a type of COPD.",
+    "Fibrosis": "Hardening and scarring of lung tissue.",
+    "Pleural_Thickening": "Thickening of the lung membrane.",
+    "Hernia": "Diaphragmatic hernia."
 }
 
 NUM_CLASSES = len(DISEASE_LABELS)
@@ -80,7 +80,7 @@ IMAGENET_STD = [0.229, 0.224, 0.225]
 
 class ChestXrayMultiLabelModel(nn.Module):
     """
-    ResNet50 tabanlı multi-label sınıflandırma modeli.
+    ResNet50-based multi-label classification model.
     """
     
     def __init__(self, num_classes: int = NUM_CLASSES, dropout: float = 0.5):
@@ -117,17 +117,17 @@ class ChestXrayMultiLabelModel(nn.Module):
 
 class MultiLabelInference:
     """
-    Multi-label model ile görüntü analizi.
+    Image analysis with multi-label model.
     """
     
     INPUT_SIZE = (224, 224)
-    THRESHOLD = 0.5  # Varsayılan threshold
+    THRESHOLD = 0.5  # Default threshold
     
     def __init__(self, model_path: str, device: Optional[str] = None):
         """
         Args:
-            model_path: Eğitilmiş model dosyasının yolu
-            device: 'cuda' veya 'cpu' (None ise otomatik seç)
+            model_path: Path to trained model file
+            device: 'cuda' or 'cpu' (None for automatic selection)
         """
         self.model_path = Path(model_path)
         self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
@@ -144,12 +144,12 @@ class MultiLabelInference:
         # Load model
         self._load_model()
         
-        logger.info(f"MultiLabelInference başlatıldı - Device: {self.device}")
+        logger.info(f"MultiLabelInference initialized - Device: {self.device}")
     
     def _load_model(self) -> bool:
-        """Modeli yükle."""
+        """Load the model."""
         if not self.model_path.exists():
-            logger.error(f"Model dosyası bulunamadı: {self.model_path}")
+            logger.error(f"Model file not found: {self.model_path}")
             return False
         
         try:
@@ -159,7 +159,7 @@ class MultiLabelInference:
             
             if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
                 self.model.load_state_dict(checkpoint['model_state_dict'])
-                logger.info(f"Checkpoint yüklendi - Epoch: {checkpoint.get('epoch', '?')}, "
+                logger.info(f"Checkpoint loaded - Epoch: {checkpoint.get('epoch', '?')}, "
                            f"Best AUC: {checkpoint.get('best_auc', '?'):.4f}")
             else:
                 self.model.load_state_dict(checkpoint)
@@ -168,11 +168,11 @@ class MultiLabelInference:
             self.model.eval()
             self.model_loaded = True
             
-            logger.info(f"✅ Model yüklendi: {self.model_path}")
+            logger.info(f"✅ Model loaded: {self.model_path}")
             return True
             
         except Exception as e:
-            logger.error(f"Model yükleme hatası: {e}")
+            logger.error(f"Model loading error: {e}")
             return False
     
     def predict(
@@ -182,21 +182,21 @@ class MultiLabelInference:
         return_all: bool = False
     ) -> Dict:
         """
-        Görüntüyü analiz et.
+        Analyze the image.
         
         Args:
-            image_bytes: Görüntü byte verisi
-            threshold: Hastalık tespit eşiği (0-1)
-            return_all: Tüm hastalık olasılıklarını döndür
+            image_bytes: Image byte data
+            threshold: Disease detection threshold (0-1)
+            return_all: Return all disease probabilities
             
         Returns:
-            dict: Analiz sonucu
+            dict: Analysis result
         """
         if not self.model_loaded:
-            return self._error_result("Model yüklenmemiş")
+            return self._error_result("Model not loaded")
         
         try:
-            # Görüntüyü yükle
+            # Load image
             pil_image = Image.open(BytesIO(image_bytes)).convert('RGB')
             
             # Transform
@@ -215,7 +215,7 @@ class MultiLabelInference:
             else:
                 embedding_np = np.zeros(2048, dtype=np.float32)
             
-            # Tespit edilen hastalıklar
+            # Detected diseases
             detected = []
             all_predictions = {}
             
@@ -231,28 +231,28 @@ class MultiLabelInference:
                         "description": DISEASE_DESCRIPTIONS.get(label, "")
                     })
             
-            # Sonuçları olasılığa göre sırala
+            # Sort results by probability
             detected.sort(key=lambda x: x['probability'], reverse=True)
             
-            # Ana sonuç
+            # Main result
             if len(detected) == 0:
                 primary_label = "No Finding"
-                primary_label_tr = "Normal - Bulgu Yok"
+                primary_label_tr = "Normal - No Finding"
                 is_pathology = False
-                confidence = "Yüksek"
+                confidence = "High"
             else:
                 primary_label = detected[0]['label']
                 primary_label_tr = detected[0]['label_tr']
                 is_pathology = True
                 
-                # Güven seviyesi
+                # Confidence level
                 max_prob = detected[0]['probability']
                 if max_prob >= 0.85:
-                    confidence = "Yüksek"
+                    confidence = "High"
                 elif max_prob >= 0.65:
-                    confidence = "Orta"
+                    confidence = "Medium"
                 else:
-                    confidence = "Düşük"
+                    confidence = "Low"
             
             result = {
                 "label": primary_label,
@@ -267,20 +267,20 @@ class MultiLabelInference:
             if return_all:
                 result["all_predictions"] = all_predictions
             
-            logger.info(f"Analiz tamamlandı - {len(detected)} hastalık tespit edildi")
+            logger.info(f"Analysis complete - {len(detected)} diseases detected")
             
             return result
             
         except Exception as e:
-            logger.error(f"Prediction hatası: {e}")
+            logger.error(f"Prediction error: {e}")
             return self._error_result(str(e))
     
     def _error_result(self, message: str) -> Dict:
-        """Hata durumunda döndürülecek sonuç."""
+        """Result to return in case of error."""
         return {
             "label": "Error",
-            "label_tr": "Hata",
-            "confidence": "Yok",
+            "label_tr": "Error",
+            "confidence": "None",
             "is_pathology": False,
             "detected_diseases": [],
             "disease_count": 0,
@@ -289,11 +289,11 @@ class MultiLabelInference:
         }
     
     def get_disease_info(self, label: str) -> Dict:
-        """Hastalık hakkında bilgi döndür."""
+        """Return information about a disease."""
         return {
             "label": label,
             "label_tr": LABEL_TR.get(label, label),
-            "description": DISEASE_DESCRIPTIONS.get(label, "Bilgi mevcut değil.")
+            "description": DISEASE_DESCRIPTIONS.get(label, "Information not available.")
         }
 
 
@@ -302,36 +302,36 @@ if __name__ == "__main__":
     import sys
     
     if len(sys.argv) < 3:
-        print("Kullanım: python inference_multilabel.py <model_path> <image_path>")
+        print("Usage: python inference_multilabel.py <model_path> <image_path>")
         sys.exit(1)
     
     model_path = sys.argv[1]
     image_path = sys.argv[2]
     
-    # Model yükle
+    # Load model
     inference = MultiLabelInference(model_path)
     
-    # Görüntüyü oku
+    # Read image
     with open(image_path, 'rb') as f:
         image_bytes = f.read()
     
-    # Analiz et
+    # Analyze
     result = inference.predict(image_bytes, threshold=0.3, return_all=True)
     
     print("\n" + "=" * 50)
-    print("ANALİZ SONUCU")
+    print("ANALYSIS RESULT")
     print("=" * 50)
-    print(f"Ana Tanı: {result['label_tr']} ({result['label']})")
-    print(f"Güven: {result['confidence']}")
-    print(f"Patoloji: {'Evet' if result['is_pathology'] else 'Hayır'}")
-    print(f"\nTespit Edilen Hastalıklar ({result['disease_count']}):")
+    print(f"Primary Diagnosis: {result['label_tr']} ({result['label']})")
+    print(f"Confidence: {result['confidence']}")
+    print(f"Pathology: {'Yes' if result['is_pathology'] else 'No'}")
+    print(f"\nDetected Diseases ({result['disease_count']}):")
     
     for disease in result['detected_diseases']:
-        print(f"  - {disease['label_tr']}: %{disease['probability']*100:.1f}")
+        print(f"  - {disease['label_tr']}: {disease['probability']*100:.1f}%")
         print(f"    {disease['description']}")
     
     if 'all_predictions' in result:
-        print("\nTüm Olasılıklar:")
+        print("\nAll Probabilities:")
         for label, prob in sorted(result['all_predictions'].items(), key=lambda x: x[1], reverse=True):
             bar = "█" * int(prob * 20)
             print(f"  {LABEL_TR.get(label, label):20} {prob*100:5.1f}% {bar}")

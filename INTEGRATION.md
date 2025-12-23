@@ -1,10 +1,10 @@
-# 🔗 Backend-Frontend Entegrasyon Rehberi
+# 🔗 Backend-Frontend Integration Guide
 
-Bu doküman, `dotshub-h-w-health` projesinin backend ve frontend bileşenlerinin entegrasyonunu açıklar.
+This document explains the integration of backend and frontend components of the `dotshub-h-w-health` project.
 
-## 📋 Hızlı Başlangıç
+## 📋 Quick Start
 
-### 1. Backend'i Başlatın
+### 1. Start Backend
 
 ```bash
 cd backend
@@ -12,12 +12,12 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Backend çalıştığında şu URL'lerde erişilebilir olacak:
+When backend is running, it will be accessible at:
 - API: http://localhost:8000
 - Docs: http://localhost:8000/docs
 - Health: http://localhost:8000/api/health
 
-### 2. Frontend'i Başlatın
+### 2. Start Frontend
 
 ```bash
 cd frontend
@@ -25,21 +25,21 @@ npm install
 npm run dev
 ```
 
-Frontend http://localhost:5173 adresinde çalışacak.
+Frontend will run at http://localhost:5173.
 
 ---
 
-## 🧪 Entegrasyon Test Senaryoları
+## 🧪 Integration Test Scenarios
 
 ### Test 1: Health Check (Happy Path)
 
-**Amaç:** Backend'in çalıştığını ve tüm servislerin aktif olduğunu doğrula.
+**Goal:** Verify that backend is running and all services are active.
 
 ```bash
 curl http://localhost:8000/api/health
 ```
 
-**Beklenen Yanıt:**
+**Expected Response:**
 ```json
 {
   "status": "healthy",
@@ -53,23 +53,23 @@ curl http://localhost:8000/api/health
 }
 ```
 
-### Test 2: Görüntü Analizi (Happy Path)
+### Test 2: Image Analysis (Happy Path)
 
-**Amaç:** Bir görüntü yükleyip AI analiz sonucu alabilmek.
+**Goal:** Upload an image and get AI analysis results.
 
-**Terminal ile:**
+**With Terminal:**
 ```bash
 curl -X POST "http://localhost:8000/api/analyze" \
   -F "file=@/path/to/xray.png"
 ```
 
-**Frontend ile:**
-1. http://localhost:5173 adresine gidin
-2. Dashboard'da "Drop MRI Scan Here" alanına bir görüntü sürükleyin
-3. Analiz sürecini izleyin
-4. Sonuçların görüntülendiğini doğrulayın
+**With Frontend:**
+1. Go to http://localhost:5173
+2. Drag an image to the "Upload X-Ray Image" area on Dashboard
+3. Watch the analysis process
+4. Verify results are displayed
 
-**Beklenen Yanıt:**
+**Expected Response:**
 ```json
 {
   "success": true,
@@ -77,13 +77,13 @@ curl -X POST "http://localhost:8000/api/analyze" \
   "pacsStatus": {
     "success": true,
     "orthancId": "mock-xxxxx",
-    "message": "DICOM başarıyla PACS'a yüklendi"
+    "message": "DICOM successfully uploaded to PACS"
   },
   "aiAnalysis": {
     "label": "Mass",
-    "labelTr": "Kitle",
+    "labelTr": "Mass",
     "probability": 0.85,
-    "confidence": "Yüksek",
+    "confidence": "High",
     "embedding": [...]
   },
   "similarCase": {
@@ -92,65 +92,65 @@ curl -X POST "http://localhost:8000/api/analyze" \
     "history": {
       "patientId": "1045",
       "age": 58,
-      "diagnosis": "Akciğer Kitlesi",
-      "treatment": "Radyoterapi",
-      "outcome": "İyileşme"
+      "diagnosis": "Lung Mass",
+      "treatment": "Radiotherapy",
+      "outcome": "Recovery"
     }
   },
-  "summary": "🔬 Analiz Tamamlandı. 📊 Tespit: Kitle (85% olasılık)..."
+  "summary": "🔬 Analysis Complete. 📊 Detection: Mass (85% probability)..."
 }
 ```
 
-### Test 3: Hasta Sorgulama
+### Test 3: Patient Query
 
-**Amaç:** Belirli bir hasta ID ile hasta bilgisi getirmek.
+**Goal:** Get patient information with a specific patient ID.
 
 ```bash
 curl http://localhost:8000/api/patients/1045
 ```
 
-**Frontend ile:**
-- Header'daki arama çubuğuna `1045` yazıp Enter'a basın
+**With Frontend:**
+- Enter `1045` in the header search bar and press Enter
 
-**Beklenen Yanıt:**
+**Expected Response:**
 ```json
 {
   "success": true,
   "patient": {
     "patient_id": "1045",
     "age": 58,
-    "gender": "Erkek",
-    "diagnosis": "Akciğer Kitlesi",
-    "treatment": "Radyoterapi",
-    "outcome": "İyileşme"
+    "gender": "Male",
+    "diagnosis": "Lung Mass",
+    "treatment": "Radiotherapy",
+    "outcome": "Recovery"
   }
 }
 ```
 
-### Test 4: Hata Yönetimi
+### Test 4: Error Handling
 
-**Amaç:** Hatalı isteklerde uygun hata mesajı döndüğünü doğrula.
+**Goal:** Verify proper error messages are returned for invalid requests.
 
-**Boş dosya gönderme:**
+**Sending empty file:**
 ```bash
 curl -X POST "http://localhost:8000/api/analyze" \
   -F "file=@/dev/null"
 ```
 
-**Beklenen:** HTTP 400 - "Boş dosya yüklendi"
+**Expected:** HTTP 400 - "Empty file uploaded"
 
-**Olmayan hasta sorgulama:**
+**Querying non-existent patient:**
 ```bash
 curl http://localhost:8000/api/patients/9999
 ```
 
-**Beklenen:** HTTP 404 - "Hasta bulunamadı: 9999"
+**Expected:** HTTP 404 - "Patient not found: 9999"
 
 ---
 
-## 🔄 Veri Dönüşümü (snake_case ↔ camelCase)
+## 🔄 Data Transformation (snake_case ↔ camelCase)
 
-Frontend otomatik olarak backend verisini dönüştürür:
+Frontend automatically transforms backend data:
 
 | Backend (Python) | Frontend (JavaScript) |
 |------------------|----------------------|
@@ -160,44 +160,44 @@ Frontend otomatik olarak backend verisini dönüştürür:
 | `pacs_status` | `pacsStatus` |
 | `diagnosis_date` | `diagnosisDate` |
 
-Bu dönüşüm [src/services/api.js](frontend/src/services/api.js) dosyasındaki `fromBackend()` ve `toBackend()` fonksiyonları tarafından yapılır.
+This transformation is done by `fromBackend()` and `toBackend()` functions in [src/services/api.js](frontend/src/services/api.js).
 
 ---
 
-## 📁 Oluşturulan/Güncellenen Dosyalar
+## 📁 Created/Updated Files
 
-### Yeni Dosyalar:
-- `frontend/.env` - Çevre değişkenleri
-- `frontend/.env.example` - Örnek çevre değişkenleri
-- `frontend/src/services/api.js` - API istemci katmanı
+### New Files:
+- `frontend/.env` - Environment variables
+- `frontend/.env.example` - Example environment variables
+- `frontend/src/services/api.js` - API client layer
 - `frontend/src/hooks/useApi.js` - React hooks
-- `frontend/src/components/ErrorBoundary.jsx` - Hata sınırı
-- `frontend/src/components/ToastProvider.jsx` - Bildirim sistemi
+- `frontend/src/components/ErrorBoundary.jsx` - Error boundary
+- `frontend/src/components/ToastProvider.jsx` - Notification system
 
-### Güncellenen Dosyalar:
-- `frontend/vite.config.js` - Proxy eklendi
-- `frontend/src/main.jsx` - ErrorBoundary & ToastProvider eklendi
-- `frontend/src/components/Dashboard.jsx` - Gerçek API entegrasyonu
-- `frontend/src/components/AnalysisView.jsx` - External progress desteği
-- `frontend/src/components/ResultsView.jsx` - API verisi desteği
-- `backend/app/main.py` - CORS güvenlik yapılandırması
-- `backend/.env` - CORS origin listesi eklendi
-
----
-
-## ⚠️ Bilinen Sınırlamalar (Prototip)
-
-1. **JWT Authentication:** Hazır değil, placeholder olarak eklenmiş
-2. **PACS Bağlantısı:** Mock mod aktif
-3. **AI Model:** Mock sonuçlar döndürüyor
-4. **Vektör DB:** In-memory, kalıcı değil
-5. **Hasta Verisi:** 4 sentetik hasta ile sınırlı
+### Updated Files:
+- `frontend/vite.config.js` - Proxy added
+- `frontend/src/main.jsx` - ErrorBoundary & ToastProvider added
+- `frontend/src/components/Dashboard.jsx` - Real API integration
+- `frontend/src/components/AnalysisView.jsx` - External progress support
+- `frontend/src/components/ResultsView.jsx` - API data support
+- `backend/app/main.py` - CORS security configuration
+- `backend/.env` - CORS origin list added
 
 ---
 
-## 🔐 Güvenlik Notları
+## ⚠️ Known Limitations (Prototype)
 
-- CORS origin listesi `.env` dosyasında tanımlı
-- Production'da sadece gerçek domain'ler eklenmeli
-- JWT token yönetimi için altyapı hazır (aktifleştirmek için backend'e auth middleware eklenmeli)
-- Hassas veriler için HTTPS kullanılmalı
+1. **JWT Authentication:** Not ready, added as placeholder
+2. **PACS Connection:** Mock mode active
+3. **AI Model:** Returns mock results
+4. **Vector DB:** In-memory, not persistent
+5. **Patient Data:** Limited to 4 synthetic patients
+
+---
+
+## 🔐 Security Notes
+
+- CORS origin list is defined in `.env` file
+- In production, only real domains should be added
+- JWT token management infrastructure is ready (add auth middleware to backend to activate)
+- HTTPS should be used for sensitive data

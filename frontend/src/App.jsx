@@ -39,7 +39,7 @@ function App() {
   };
 
   const handleBackFromPatientDetail = () => {
-    // Dashboard'a dön (analiz sonuçları orada gösterilecek)
+    // Return to Dashboard (analysis results will be shown there)
     setCurrentView('dashboard');
     setCameFromResults(false);
   };
@@ -50,25 +50,25 @@ function App() {
       setIsSearching(true);
       
       try {
-        // Gerçek API ile hasta ara
+        // Search patient with real API
         const patientData = await getPatient(searchQuery.trim());
         
         if (patientData) {
           const patient = {
             id: patientData.patientId || searchQuery,
             age: patientData.age || 0,
-            gender: patientData.gender || 'Bilinmiyor',
-            diagnosis: patientData.history?.diagnosis || 'Bilgi Yok'
+            gender: patientData.gender || 'Unknown',
+            diagnosis: patientData.history?.diagnosis || 'No Information'
           };
           setCameFromResults(false);
           handlePatientSelect(patient);
           setSearchQuery('');
         } else {
-          setSearchError('Hasta bulunamadı');
+          setSearchError('Patient not found');
         }
       } catch (error) {
-        // Hasta arama hatası - sessizce hata mesajı göster
-        setSearchError('Hasta bulunamadı veya bağlantı hatası');
+        // Patient search error - silently show error message
+        setSearchError('Patient not found or connection error');
       } finally {
         setIsSearching(false);
       }
@@ -90,10 +90,10 @@ function App() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-dark)] text-[var(--text-main)] w-full h-screen overflow-hidden flex flex-col">
-      {/* Top Header */}
+      /* Top Header */
       <header className="h-14 border-b border-[var(--border)] bg-[var(--bg-card)] flex items-center px-6 justify-between flex-shrink-0 relative z-50">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentView('dashboard')}>
-          <img src="/ellie.png" alt="Ellie" className="h-8 w-auto" />
+          <span className="text-lg font-bold text-[var(--text-main)]">ellie</span>
         </div>
 
         {/* Search Bar */}
@@ -108,7 +108,7 @@ function App() {
             )}
             <input
               type="text"
-              placeholder="Hasta ID ile ara (örn: 00001)..."
+              placeholder="Search by Patient ID..."
               className={`w-full bg-[var(--bg-dark)] border rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-1 transition ${
                 searchError 
                   ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
@@ -141,20 +141,20 @@ function App() {
           {isDropdownOpen && (
             <div className="absolute top-full right-0 mt-2 w-48 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
               <div className="p-2">
-                <div className="text-xs text-[var(--text-muted)] font-bold px-3 py-2 uppercase tracking-wider">Hesap</div>
+                <div className="text-xs text-[var(--text-muted)] font-bold px-3 py-2 uppercase tracking-wider">Account</div>
                 <button
                   onClick={() => navigateTo('profile')}
                   className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--bg-card-hover)] rounded flex items-center gap-2"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-                  Profil
+                  Profile
                 </button>
                 <button
                   onClick={() => navigateTo('settings')}
                   className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--bg-card-hover)] rounded flex items-center gap-2"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
-                  Ayarlar
+                  Settings
                 </button>
                 <div className="h-px bg-[var(--border)] my-1"></div>
                 <button
@@ -162,7 +162,7 @@ function App() {
                   className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-400/10 rounded flex items-center gap-2"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
-                  Çıkış Yap
+                  Logout
                 </button>
               </div>
             </div>

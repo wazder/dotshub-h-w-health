@@ -1,35 +1,35 @@
-# 🏥 Tıbbi X-Ray Analiz Sistemi - Hızlı Başlangıç
+# 🏥 Medical X-Ray Analysis System - Quick Start
 
-## 1. Virtual Environment'a Giriş
+## 1. Enter Virtual Environment
 
 ```bash
 source /Users/wazder/Documents/GitHub/dotshub-h-w-health/venv/bin/activate
 ```
 
-## 2. Backend'i Başlatma
+## 2. Start Backend
 
 ```bash
 cd /Users/wazder/Documents/GitHub/dotshub-h-w-health/backend
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-**Backend Adresleri:**
+**Backend URLs:**
 - API: http://localhost:8000
 - Docs: http://localhost:8000/docs
 
-## 3. Frontend'i Başlatma
+## 3. Start Frontend
 
 ```bash
 cd /Users/wazder/Documents/GitHub/dotshub-h-w-health/frontend
 npm run dev
 ```
 
-**Frontend Adresi:**
+**Frontend URL:**
 - http://localhost:5173
 
 ---
 
-## Tek Satırda Çalıştırma
+## One-Line Commands
 
 ### Backend:
 ```bash

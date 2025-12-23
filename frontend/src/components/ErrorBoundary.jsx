@@ -3,8 +3,8 @@ import React from 'react';
 /**
  * ErrorBoundary - React Error Boundary Component
  * 
- * Alt bileşenlerde oluşan JavaScript hatalarını yakalar
- * ve kullanıcı dostu bir hata mesajı gösterir.
+ * Catches JavaScript errors in child components
+ * and displays a user-friendly error message.
  */
 class ErrorBoundary extends React.Component {
     constructor(props) {
@@ -19,7 +19,7 @@ class ErrorBoundary extends React.Component {
     componentDidCatch(error, errorInfo) {
         this.setState({ errorInfo });
         
-        // Hata loglama servisi entegrasyonu yapılabilir
+        // Error logging service integration can be added here
         console.error('ErrorBoundary caught an error:', error, errorInfo);
     }
 
@@ -42,17 +42,17 @@ class ErrorBoundary extends React.Component {
                         </div>
                         
                         <h1 className="text-2xl font-bold text-[var(--text-main)] mb-2">
-                            Bir Şeyler Yanlış Gitti
+                            Something Went Wrong
                         </h1>
                         <p className="text-[var(--text-muted)] mb-6">
-                            Beklenmedik bir hata oluştu. Lütfen sayfayı yenileyin veya daha sonra tekrar deneyin.
+                            An unexpected error occurred. Please refresh the page or try again later.
                         </p>
                         
                         {/* Error Details (Development only) */}
                         {import.meta.env.DEV && this.state.error && (
                             <details className="text-left bg-[var(--bg-dark)] rounded p-4 mb-6 text-xs">
                                 <summary className="cursor-pointer text-[var(--text-muted)] mb-2">
-                                    Teknik Detaylar
+                                    Technical Details
                                 </summary>
                                 <pre className="overflow-auto text-red-400 font-mono">
                                     {this.state.error.toString()}
@@ -66,13 +66,13 @@ class ErrorBoundary extends React.Component {
                                 onClick={() => window.location.reload()}
                                 className="btn btn-primary"
                             >
-                                Sayfayı Yenile
+                                Refresh Page
                             </button>
                             <button
                                 onClick={this.handleReset}
                                 className="btn border border-[var(--border)] hover:bg-[var(--bg-card-hover)]"
                             >
-                                Tekrar Dene
+                                Try Again
                             </button>
                         </div>
                     </div>

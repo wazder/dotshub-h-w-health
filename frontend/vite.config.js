@@ -10,13 +10,13 @@ export default defineConfig({
         port: 5173,
         host: true,
         
-        // API Proxy - CORS sorunlarını development'ta çözer
+        // API Proxy - Solves CORS issues in development
         proxy: {
             '/api': {
                 target: 'http://localhost:8000',
                 changeOrigin: true,
                 secure: false,
-                // Hata durumunda loglama
+                // Log on error
                 configure: (proxy, _options) => {
                     proxy.on('error', (err, _req, _res) => {
                         console.log('🔴 Proxy error:', err);

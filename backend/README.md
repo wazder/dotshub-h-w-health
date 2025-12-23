@@ -1,54 +1,54 @@
-# 🏥 Tıbbi X-Ray Analiz Pipeline
+# 🏥 Medical X-Ray Analysis Pipeline
 
-> DICOM görüntülerini yapay zeka ile analiz eden ve benzer tarihsel vakaları bulan backend sistemi.
-
----
-
-## 📋 İçindekiler
-
-1. [Proje Özeti](#-proje-özeti)
-2. [Sistem Mimarisi](#-sistem-mimarisi)
-3. [Pipeline Akışı](#-pipeline-akışı)
-4. [Dosya Yapısı](#-dosya-yapısı)
-5. [Kurulum](#-kurulum)
-6. [API Kullanımı](#-api-kullanımı)
-7. [Servisler Detayı](#-servisler-detayı)
-8. [Geliştirme Yol Haritası](#-geliştirme-yol-haritası)
+> Backend system that analyzes DICOM images with artificial intelligence and finds similar historical cases.
 
 ---
 
-## 🎯 Proje Özeti
+## 📋 Table of Contents
 
-Bu proje, röntgen görüntülerini (DICOM formatında) analiz eden ve benzer tarihsel vakaları bulan bir **tıbbi yapay zeka pipeline'ı**dır.
-
-### Ne Yapar?
-1. Bir X-Ray DICOM dosyası alır
-2. PACS sunucusuna kaydeder
-3. **CNN modeli** ile hastalık sınıflandırması yapar (LLM yok)
-4. Vektör veritabanında benzer vakaları bulur
-5. Benzer hastanın tedavi geçmişini döndürür
-
-### ⚠️ Önemli Not:
-**Bu projede LLM/GPT kullanılmıyor.** AI servisi sadece:
-- Görüntü sınıflandırma (CNN - Convolutional Neural Network)
-- Vektör embedding üretimi (benzerlik araması için)
-
-### Örnek Senaryo:
-```
-Doktor bir akciğer röntgeni yükler
-    ↓
-CNN Model: {label: "Kitle", probability: 0.92}
-    ↓
-Vektör Arama: En benzer vaka → Hasta 1045
-    ↓
-Sistem: Hasta 1045 geçmişini JSON'dan döndürür
-```
+1. [Project Overview](#-project-overview)
+2. [System Architecture](#-system-architecture)
+3. [Pipeline Flow](#-pipeline-flow)
+4. [File Structure](#-file-structure)
+5. [Installation](#-installation)
+6. [API Usage](#-api-usage)
+7. [Services Details](#-services-details)
+8. [Development Roadmap](#-development-roadmap)
 
 ---
 
-## 🏗 Sistem Mimarisi
+## 🎯 Project Overview
 
-```
+This project is a **medical artificial intelligence pipeline** that analyzes X-ray images (in DICOM format) and finds similar historical cases.
+
+### What Does It Do?
+1. Takes an X-Ray DICOM file
+2. Saves it to the PACS server
+3. Performs disease classification with **CNN model** (no LLM)
+4. Finds similar cases in the vector database
+5. Returns the treatment history of the similar patient
+
+### ⚠️ Important Note:
+**LLM/GPT is NOT used in this project.** The AI service only:
+- Image classification (CNN - Convolutional Neural Network)
+- Vector embedding generation (for similarity search)
+
+### Example Scenario:
+\`\`\`
+Doctor uploads a chest X-ray
+    ↓
+CNN Model: {label: "Mass", probability: 0.92}
+    ↓
+Vector Search: Most similar case → Patient 1045
+    ↓
+System: Returns Patient 1045 history from JSON
+\`\`\`
+
+---
+
+## 🏗 System Architecture
+
+\`\`\`
 ┌─────────────────────────────────────────────────────────────────┐
 │                        CLIENT (Swagger UI)                       │
 │                    http://localhost:8000/docs                    │
@@ -57,7 +57,7 @@ Sistem: Hasta 1045 geçmişini JSON'dan döndürür
                                  ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                         FastAPI (main.py)                        │
-│                    Ana API Controller Katmanı                    │
+│                    Main API Controller Layer                     │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
 │  │ POST        │  │ GET         │  │ GET                     │  │
 │  │ /api/analyze│  │ /api/health │  │ /api/patients/{id}      │  │
@@ -66,136 +66,136 @@ Sistem: Hasta 1045 geçmişini JSON'dan döndürür
                                  │
                                  ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      SERVİS KATMANI (services/)                  │
+│                      SERVICE LAYER (services/)                   │
 │                                                                  │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
 │  │ PACS Service │  │  AI Service  │  │Search Service│           │
 │  │              │  │              │  │              │           │
-│  │ • DICOM      │  │ • Görüntü    │  │ • Vektör     │           │
-│  │   Yükleme    │  │   Analizi    │  │   Benzerlik  │           │
+│  │ • DICOM      │  │ • Image      │  │ • Vector     │           │
+│  │   Upload     │  │   Analysis   │  │   Similarity │           │
 │  │ • Orthanc    │  │ • Embedding  │  │ • FAISS/     │           │
-│  │   Mock       │  │   Üretimi    │  │   Qdrant     │           │
+│  │   Mock       │  │   Generation │  │   Qdrant     │           │
 │  └──────────────┘  └──────────────┘  └──────────────┘           │
 │         │                  │                  │                  │
 │         ▼                  ▼                  ▼                  │
-│  ┌──────────────────────────────────────────────────────────┐   │
+│  ┌──────────────────────────────────────────────────────────────┐   │
 │  │                    Data Service                          │   │
-│  │           Hasta Geçmişi JSON Veritabanı                  │   │
+│  │           Patient History JSON Database                  │   │
 │  │              (synthetic_patients.json)                    │   │
 │  └──────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
-```
+\`\`\`
 
 ---
 
-## 🔄 Pipeline Akışı
+## 🔄 Pipeline Flow
 
-```
+\`\`\`
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
 │   1. UPLOAD  │────▶│   2. PACS    │────▶│   3. AI      │
 │              │     │              │     │              │
-│ DICOM dosya  │     │ Orthanc'a    │     │ Görüntü      │
-│ API'ye       │     │ yükle        │     │ analizi      │
-│ gönderilir   │     │ (mock)       │     │ (mock)       │
+│ DICOM file   │     │ Upload to    │     │ Image        │
+│ sent to      │     │ Orthanc      │     │ analysis     │
+│ API          │     │ (mock)       │     │ (mock)       │
 └──────────────┘     └──────────────┘     └──────────────┘
                                                  │
                                                  ▼
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
 │   6. OUTPUT  │◀────│   5. DATA    │◀────│  4. SEARCH   │
 │              │     │              │     │              │
-│ JSON yanıt   │     │ Hasta 1045   │     │ Embedding    │
-│ döndür       │     │ geçmişini    │     │ ile benzer   │
-│              │     │ getir        │     │ vaka bul     │
+│ Return JSON  │     │ Get Patient  │     │ Find similar │
+│ response     │     │ 1045         │     │ case with    │
+│              │     │ history      │     │ embedding    │
 └──────────────┘     └──────────────┘     └──────────────┘
-```
+\`\`\`
 
-### Adım Adım Açıklama:
+### Step by Step Explanation:
 
-| Adım | Servis | Açıklama |
-|------|--------|----------|
-| 1 | `main.py` | Kullanıcı DICOM dosyasını `/api/analyze` endpoint'ine POST eder |
-| 2 | `pacs_service.py` | Dosya PACS sunucusuna yüklenir (şu an mock mod) |
-| 3 | `ai_service.py` | AI modeli görüntüyü analiz eder, hastalık + embedding döndürür |
-| 4 | `search_service.py` | Embedding ile vektör DB'de benzer vaka aranır |
-| 5 | `data_service.py` | Bulunan hasta ID'sinin geçmiş bilgisi JSON'dan okunur |
-| 6 | `main.py` | Tüm sonuçlar birleştirilip JSON olarak döndürülür |
+| Step | Service | Description |
+|------|---------|-------------|
+| 1 | \`main.py\` | User POSTs DICOM file to \`/api/analyze\` endpoint |
+| 2 | \`pacs_service.py\` | File is uploaded to PACS server (currently mock mode) |
+| 3 | \`ai_service.py\` | AI model analyzes the image, returns disease + embedding |
+| 4 | \`search_service.py\` | Similar case is searched in vector DB with embedding |
+| 5 | \`data_service.py\` | Found patient ID's history is read from JSON |
+| 6 | \`main.py\` | All results are combined and returned as JSON |
 
 ---
 
-## 📁 Dosya Yapısı
+## 📁 File Structure
 
-```
+\`\`\`
 dotshub-h-w-health/
 │
-├── 📄 .env                        # Çevre değişkenleri (config)
-├── 📄 .gitattributes              # Git ayarları
-├── 📄 requirements.txt            # Python bağımlılıkları
-├── 📄 README.md                   # Bu dosya
+├── 📄 .env                        # Environment variables (config)
+├── 📄 .gitattributes              # Git settings
+├── 📄 requirements.txt            # Python dependencies
+├── 📄 README.md                   # This file
 │
-└── 📂 app/                        # Ana uygulama klasörü
+└── 📂 app/                        # Main application folder
     │
-    ├── 📄 __init__.py             # Modül tanımı
-    ├── 📄 main.py                 # ⭐ FastAPI giriş noktası
-    ├── 📄 models.py               # Pydantic veri modelleri
+    ├── 📄 __init__.py             # Module definition
+    ├── 📄 main.py                 # ⭐ FastAPI entry point
+    ├── 📄 models.py               # Pydantic data models
     │
-    ├── 📂 data/                   # Veri dosyaları
-    │   └── 📄 synthetic_patients.json  # Örnek hasta verileri
+    ├── 📂 data/                   # Data files
+    │   └── 📄 synthetic_patients.json  # Sample patient data
     │
-    └── 📂 services/               # İş mantığı servisleri
+    └── 📂 services/               # Business logic services
         ├── 📄 __init__.py
-        ├── 📄 pacs_service.py     # PACS/Orthanc entegrasyonu
-        ├── 📄 ai_service.py       # Yapay zeka motoru
-        ├── 📄 search_service.py   # Vektör arama servisi
-        └── 📄 data_service.py     # Hasta verisi yönetimi
-```
+        ├── 📄 pacs_service.py     # PACS/Orthanc integration
+        ├── 📄 ai_service.py       # Artificial intelligence engine
+        ├── 📄 search_service.py   # Vector search service
+        └── 📄 data_service.py     # Patient data management
+\`\`\`
 
 ---
 
-## ⚙️ Kurulum
+## ⚙️ Installation
 
-### 1. Bağımlılıkları Yükle
-```bash
+### 1. Install Dependencies
+\`\`\`bash
 pip install -r requirements.txt
-```
+\`\`\`
 
-### 2. API'yi Başlat
-```bash
+### 2. Start the API
+\`\`\`bash
 python -m uvicorn app.main:app --reload --port 8000
-```
+\`\`\`
 
-### 3. Tarayıcıda Aç
+### 3. Open in Browser
 - **Swagger UI:** http://localhost:8000/docs
 - **ReDoc:** http://localhost:8000/redoc
 - **Health Check:** http://localhost:8000/api/health
 
 ---
 
-## 🌐 API Kullanımı
+## 🌐 API Usage
 
 ### POST /api/analyze
-DICOM dosyasını analiz eder.
+Analyzes the DICOM file.
 
 **Request:**
-```bash
-curl -X POST "http://localhost:8000/api/analyze" \
-  -H "Content-Type: multipart/form-data" \
+\`\`\`bash
+curl -X POST "http://localhost:8000/api/analyze" \\
+  -H "Content-Type: multipart/form-data" \\
   -F "file=@xray.dcm"
-```
+\`\`\`
 
 **Response:**
-```json
+\`\`\`json
 {
   "success": true,
   "timestamp": "2024-12-22T16:00:00",
   "pacs_status": {
     "success": true,
     "orthanc_id": "abc123",
-    "message": "[MOCK] DICOM başarıyla simüle PACS'a yüklendi"
+    "message": "[MOCK] DICOM successfully uploaded to simulated PACS"
   },
   "ai_analysis": {
     "probability": 0.92,
-    "label": "Kitle",
-    "confidence": "Yüksek",
+    "label": "Mass",
+    "confidence": "High",
     "embedding": [0.1, 0.2, 0.3, ...]
   },
   "similar_case": {
@@ -203,165 +203,165 @@ curl -X POST "http://localhost:8000/api/analyze" \
     "similarity_score": 0.89,
     "history": {
       "patient_id": "1045",
-      "diagnosis": "Akciğer Kitlesi",
-      "treatment": "Radyoterapi",
-      "outcome": "İyileşme",
-      "history": "Benzer Vaka Bulundu: Hasta 1045. İki yıl önce benzer bir kitle görüldü, Radyoterapi uygulandı ve 6 ayda iyileşme sağlandı."
+      "diagnosis": "Lung Mass",
+      "treatment": "Radiotherapy",
+      "outcome": "Recovery",
+      "history": "Similar Case Found: Patient 1045. A similar mass was observed two years ago, Radiotherapy was applied and recovery was achieved in 6 months."
     }
   },
-  "summary": "🔬 Analiz Tamamlandı. | 📊 Tespit: Kitle (92% olasılık) | 📁 Benzer Vaka: Hasta 1045"
+  "summary": "🔬 Analysis Complete. | 📊 Detection: Mass (92% probability) | 📁 Similar Case: Patient 1045"
 }
-```
+\`\`\`
 
 ### GET /api/health
-Sistem durumunu kontrol eder.
+Checks the system status.
 
 **Response:**
-```json
+\`\`\`json
 {
   "status": "healthy",
   "version": "1.0.0-prototype",
   "services": {
-    "pacs": {"status": "ok", "message": "Mock mod aktif"},
-    "ai_engine": {"status": "ok", "message": "AI servisi çalışıyor"},
-    "vector_search": {"status": "ok", "message": "4 vektör (mock mod)"},
-    "data_service": {"status": "ok", "message": "4 hasta"}
+    "pacs": {"status": "ok", "message": "Mock mode active"},
+    "ai_engine": {"status": "ok", "message": "AI service running"},
+    "vector_search": {"status": "ok", "message": "4 vectors (mock mode)"},
+    "data_service": {"status": "ok", "message": "4 patients"}
   }
 }
-```
+\`\`\`
 
 ### GET /api/patients/{id}
-Belirli bir hastanın bilgisini getirir.
+Retrieves information for a specific patient.
 
 ---
 
-## 🔧 Servisler Detayı
+## 🔧 Services Details
 
-### 1. PACS Service (`pacs_service.py`)
+### 1. PACS Service (\`pacs_service.py\`)
 
-**Görev:** DICOM dosyalarını PACS (Picture Archiving and Communication System) sunucusuna yükler.
+**Task:** Uploads DICOM files to the PACS (Picture Archiving and Communication System) server.
 
-**Şu an:** Mock mod - gerçek Orthanc sunucusu olmadan simüle eder.
+**Currently:** Mock mode - simulates without a real Orthanc server.
 
-```python
-# Kullanım
+\`\`\`python
+# Usage
 from app.services.pacs_service import pacs_service
 
 result = pacs_service.upload_dicom(dicom_bytes)
 # {"success": True, "orthanc_id": "abc123", ...}
-```
+\`\`\`
 
-**Gerçek entegrasyon için:**
-- `.env` dosyasında `ORTHANC_URL` ayarla
-- `pyorthanc` paketini yükle
+**For real integration:**
+- Set \`ORTHANC_URL\` in \`.env\` file
+- Install \`pyorthanc\` package
 
 ---
 
-### 2. AI Service (`ai_service.py`)
+### 2. AI Service (\`ai_service.py\`)
 
-**Görev:** X-Ray görüntüsünü **CNN modeli** ile analiz eder (LLM YOK):
-- Hastalık sınıflandırması yapar (örn: "Kitle", "Pnömoni")
-- Olasılık döndürür (0-1 arası)
-- Vektör embedding üretir (benzerlik araması için)
+**Task:** Analyzes X-Ray image with **CNN model** (NO LLM):
+- Performs disease classification (e.g.: "Mass", "Pneumonia")
+- Returns probability (between 0-1)
+- Generates vector embedding (for similarity search)
 
-**⚠️ NOT:** Bu servis LLM/GPT kullanmaz. Sadece görüntü işleme CNN modeli.
+**⚠️ NOTE:** This service does NOT use LLM/GPT. Only image processing CNN model.
 
-**Şu an:** Mock mod - rastgele ama tutarlı sonuçlar döndürür.
+**Currently:** Mock mode - returns random but consistent results.
 
-```python
-# Kullanım
+\`\`\`python
+# Usage
 from app.services.ai_service import ai_service
 
 result = ai_service.analyze_image(dicom_bytes)
-# {"probability": 0.92, "label": "Kitle", "embedding": [...]}
-```
+# {"probability": 0.92, "label": "Mass", "embedding": [...]}
+\`\`\`
 
-**Gerçek entegrasyon için:**
-- PyTorch/TensorFlow ile eğitilmiş CNN modeli
-- ResNet, EfficientNet, DenseNet gibi mimariler
-- NIH ChestX-ray14 dataset ile eğitim
+**For real integration:**
+- CNN model trained with PyTorch/TensorFlow
+- Architectures like ResNet, EfficientNet, DenseNet
+- Training with NIH ChestX-ray14 dataset
 
 ---
 
-### 3. Search Service (`search_service.py`)
+### 3. Search Service (\`search_service.py\`)
 
-**Görev:** Vektör embedding'i alır, veritabanında en benzer vakayı bulur.
+**Task:** Takes vector embedding, finds the most similar case in the database.
 
-**Şu an:** Mock mod - cosine similarity ile arama yapar, her zaman Hasta 1045 döndürür.
+**Currently:** Mock mode - searches with cosine similarity, always returns Patient 1045.
 
-```python
-# Kullanım
+\`\`\`python
+# Usage
 from app.services.search_service import search_service
 
 results = search_service.search_similar(embedding, top_k=1)
-# [("1045", 0.89)]  # (hasta_id, benzerlik_skoru)
-```
+# [("1045", 0.89)]  # (patient_id, similarity_score)
+\`\`\`
 
-**Gerçek entegrasyon için:**
-- FAISS (Facebook AI Similarity Search) veya
-- Qdrant, Pinecone, Weaviate gibi vektör DB kullan
+**For real integration:**
+- Use FAISS (Facebook AI Similarity Search) or
+- Vector DB like Qdrant, Pinecone, Weaviate
 
 ---
 
-### 4. Data Service (`data_service.py`)
+### 4. Data Service (\`data_service.py\`)
 
-**Görev:** Hasta geçmiş bilgilerini JSON dosyasından okur.
+**Task:** Reads patient history information from JSON file.
 
-```python
-# Kullanım
+\`\`\`python
+# Usage
 from app.services.data_service import data_service
 
 patient = data_service.get_patient_history("1045")
-# {"patient_id": "1045", "diagnosis": "Akciğer Kitlesi", ...}
-```
+# {"patient_id": "1045", "diagnosis": "Lung Mass", ...}
+\`\`\`
 
-**Veri Dosyası:** `app/data/synthetic_patients.json`
+**Data File:** \`app/data/synthetic_patients.json\`
 
-Şu an 4 örnek hasta var:
-- **1045:** Akciğer Kitlesi → Radyoterapi → İyileşme
-- **1046:** Pnömoni → Antibiyotik → Tam İyileşme
-- **1047:** Tüberküloz → Anti-TB Tedavi → Devam Ediyor
-- **1048:** Plevral Efüzyon → Torasentez → İyileşme
-
----
-
-## 📊 Veri Modelleri (`models.py`)
-
-| Model | Açıklama |
-|-------|----------|
-| `AnalysisResponse` | Ana API yanıt modeli |
-| `AIAnalysisResult` | AI analiz sonuçları |
-| `PatientHistory` | Hasta geçmiş bilgisi |
-| `SimilarCase` | Benzer vaka bilgisi |
-| `PACSUploadResult` | PACS yükleme durumu |
-| `HealthCheckResponse` | Sistem sağlık durumu |
+Currently 4 sample patients:
+- **1045:** Lung Mass → Radiotherapy → Recovery
+- **1046:** Pneumonia → Antibiotics → Full Recovery
+- **1047:** Tuberculosis → Anti-TB Treatment → Ongoing
+- **1048:** Pleural Effusion → Thoracentesis → Recovery
 
 ---
 
-## 🛣 Geliştirme Yol Haritası
+## 📊 Data Models (\`models.py\`)
 
-### Faz 1: Prototip (ŞU AN) ✅
-- [x] FastAPI yapısı
-- [x] Mock servisler
-- [x] Temel pipeline
-- [x] Swagger dokümantasyonu
+| Model | Description |
+|-------|-------------|
+| \`AnalysisResponse\` | Main API response model |
+| \`AIAnalysisResult\` | AI analysis results |
+| \`PatientHistory\` | Patient history information |
+| \`SimilarCase\` | Similar case information |
+| \`PACSUploadResult\` | PACS upload status |
+| \`HealthCheckResponse\` | System health status |
 
-### Faz 2: Gerçek AI Entegrasyonu
-- [ ] Eğitilmiş CNN modeli entegrasyonu
-- [ ] Gerçek DICOM işleme
-- [ ] GPU desteği
+---
 
-### Faz 3: Vektör DB Entegrasyonu
-- [ ] FAISS veya Qdrant kurulumu
-- [ ] Gerçek hasta vektörleri
-- [ ] Benzerlik eşik ayarları
+## 🛣 Development Roadmap
 
-### Faz 4: PACS Entegrasyonu
-- [ ] Orthanc sunucu kurulumu
-- [ ] pyorthanc entegrasyonu
-- [ ] DICOM standardı uyumu
+### Phase 1: Prototype (CURRENT) ✅
+- [x] FastAPI structure
+- [x] Mock services
+- [x] Basic pipeline
+- [x] Swagger documentation
 
-### Faz 5: Prodüksiyon
+### Phase 2: Real AI Integration
+- [ ] Trained CNN model integration
+- [ ] Real DICOM processing
+- [ ] GPU support
+
+### Phase 3: Vector DB Integration
+- [ ] FAISS or Qdrant setup
+- [ ] Real patient vectors
+- [ ] Similarity threshold settings
+
+### Phase 4: PACS Integration
+- [ ] Orthanc server setup
+- [ ] pyorthanc integration
+- [ ] DICOM standard compliance
+
+### Phase 5: Production
 - [ ] Docker containerization
 - [ ] Kubernetes deployment
 - [ ] Monitoring & Logging
@@ -369,49 +369,49 @@ patient = data_service.get_patient_history("1045")
 
 ---
 
-## 🔐 Çevre Değişkenleri (`.env`)
+## 🔐 Environment Variables (\`.env\`)
 
-```env
-# PACS Ayarları
+\`\`\`env
+# PACS Settings
 ORTHANC_URL=http://localhost:8042
 ORTHANC_USERNAME=your_orthanc_username
 ORTHANC_PASSWORD=your_orthanc_password
 
-# API Ayarları
+# API Settings
 API_HOST=0.0.0.0
 API_PORT=8000
 DEBUG=True
 
-# AI Model Ayarları
-AI_MODEL_DELAY=0.5      # Simüle gecikme (saniye)
-VECTOR_DIMENSION=128    # Embedding boyutu
-```
+# AI Model Settings
+AI_MODEL_DELAY=0.5      # Simulated delay (seconds)
+VECTOR_DIMENSION=128    # Embedding dimension
+\`\`\`
 
 ---
 
-## 📝 Notlar
+## 📝 Notes
 
-- **Mock Mod:** Tüm servisler şu an mock modda çalışıyor. Bu, gerçek AI modeli veya Orthanc sunucusu olmadan geliştirme yapmanızı sağlar.
+- **Mock Mode:** All services are currently running in mock mode. This allows you to develop without a real AI model or Orthanc server.
 
-- **Prototip Amaçlı:** Bu kod üretim için değil, konsept kanıtlama (PoC) içindir.
+- **Prototype Purpose:** This code is not for production, it's for proof of concept (PoC).
 
-- **Test için:** Swagger UI'da (`/docs`) "Try it out" ile kolayca test edebilirsiniz.
-
----
-
-## 👥 Katkıda Bulunma
-
-1. Branch oluştur: `git checkout -b feature/yeni-ozellik`
-2. Değişiklikleri commit et: `git commit -m 'Yeni özellik eklendi'`
-3. Push et: `git push origin feature/yeni-ozellik`
-4. Pull Request aç
+- **For Testing:** You can easily test with "Try it out" in Swagger UI (\`/docs\`).
 
 ---
 
-## 📄 Lisans
+## 👥 Contributing
+
+1. Create a branch: \`git checkout -b feature/new-feature\`
+2. Commit your changes: \`git commit -m 'New feature added'\`
+3. Push: \`git push origin feature/new-feature\`
+4. Open a Pull Request
+
+---
+
+## 📄 License
 
 MIT License
 
 ---
 
-**Sorularınız için:** Swagger UI'da `/docs` adresinde API'yi keşfedin!
+**For questions:** Explore the API at \`/docs\` in Swagger UI!

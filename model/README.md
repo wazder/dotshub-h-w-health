@@ -1,49 +1,50 @@
-# 🩻 Chest X-Ray Pathology Detection (Göğüs Röntgeni Hastalık Tespiti)
+# 🩻 Chest X-Ray Pathology Detection
 
-Bu proje, Derin Öğrenme (Deep Learning) teknikleri kullanılarak akciğer röntgen görüntülerinin analiz edilmesini ve belirli patolojilerin (Kitle/Nodül) tespit edilmesini amaçlar. Model, NIH Chest X-ray veri seti üzerinde eğitilmiştir.
+This project aims to analyze chest X-ray images and detect specific pathologies (Mass/Nodule) using Deep Learning techniques. The model has been trained on the NIH Chest X-ray dataset.
 
-## 🚀 Proje Hakkında
+## 🚀 About the Project
 
-Bu çalışmada, sağlıklı akciğer görüntüleri ("No Finding") ile hastalık belirtisi taşıyan ("Mass" veya "Nodule") görüntüleri birbirinden ayıran ikili sınıflandırma (binary classification) modeli geliştirilmiştir. 
+In this work, a binary classification model has been developed to distinguish between healthy lung images ("No Finding") and images showing signs of disease ("Mass" or "Nodule").
 
-Proje kapsamında **Transfer Learning (Transfer Öğrenme)** yöntemi kullanılmış ve ImageNet üzerinde önceden eğitilmiş **ResNet50** mimarisi, röntgen görüntüleri için özelleştirilmiştir.
+**Transfer Learning** was used in this project, and the **ResNet50** architecture, pre-trained on ImageNet, was customized for X-ray images.
 
-### 🎯 Amaç
-* Radyologlara yardımcı olabilecek bir Karar Destek Sistemi (CDSS) temeli oluşturmak.
-* Büyük veri setleri üzerinde GPU destekli (NVIDIA L40) derin öğrenme eğitimi gerçekleştirmek.
-* Tıbbi görüntü işlemede CNN (Convolutional Neural Networks) performansını analiz etmek.
+### 🎯 Objectives
+* To establish the foundation for a Clinical Decision Support System (CDSS) that can assist radiologists.
+* To perform GPU-accelerated (NVIDIA L40) deep learning training on large datasets.
+* To analyze CNN (Convolutional Neural Networks) performance in medical image processing.
 
 ---
 
-## 🛠️ Kullanılan Teknolojiler ve Mimari
+## 🛠️ Technologies and Architecture Used
 
 * **Model:** ResNet50 (Pretrained)
 * **Framework:** PyTorch
-* **Donanım:** NVIDIA L40 (48GB VRAM) - RunPod Cloud
-* **Veri Seti:** NIH Chest X-rays (National Institutes of Health)
-* **Optimize Edici:** Adam Optimizer
-* **Loss Fonksiyonu:** Binary Cross Entropy (BCELoss)
+* **Hardware:** NVIDIA L40 (48GB VRAM) - RunPod Cloud
+* **Dataset:** NIH Chest X-rays (National Institutes of Health)
+* **Optimizer:** Adam Optimizer
+* **Loss Function:** Binary Cross Entropy (BCELoss)
 
 ---
 
-## 📊 Eğitim Parametreleri
+## 📊 Training Parameters
 
-Modelin eğitimi sırasında aşağıdaki hiperparametreler kullanılmıştır:
+The following hyperparameters were used during model training:
 
-| Parametre | Değer | Açıklama |
+| Parameter | Value | Description |
 | :--- | :--- | :--- |
-| **Görüntü Boyutu** | 224x224 | ResNet standart giriş boyutu |
-| **Batch Size** | 128 | L40 GPU bellek optimizasyonu |
-| **Epoch Sayısı** | 5 | Eğitim turu sayısı |
-| **Learning Rate** | 0.0001 | Öğrenme katsayısı |
-| **Veri Dengeleme** | Aktif | Pozitif ve Negatif örnekler eşitlendi |
+| **Image Size** | 224x224 | ResNet standard input size |
+| **Batch Size** | 128 | L40 GPU memory optimization |
+| **Number of Epochs** | 5 | Number of training rounds |
+| **Learning Rate** | 0.0001 | Learning coefficient |
+| **Data Balancing** | Active | Positive and Negative samples equalized |
 
 ---
 
-## 💻 Kurulum ve Kullanım
+## 💻 Installation and Usage
 
-Bu projeyi yerel bilgisayarınızda çalıştırmak için aşağıdaki adımları izleyin.
+Follow the steps below to run this project on your local machine.
 
-### 1. Gereksinimleri Yükleyin
+### 1. Install Requirements
 ```bash
 pip install torch torchvision pandas scikit-learn pillow tqdm
+```

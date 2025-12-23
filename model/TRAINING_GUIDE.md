@@ -1,61 +1,61 @@
-# NIH Chest X-ray Multi-Label Model Eğitimi
+# NIH Chest X-ray Multi-Label Model Training
 
-## 🎯 Amaç
-14 hastalığı ayrı ayrı tespit edebilen multi-label sınıflandırma modeli eğitmek.
+## 🎯 Objective
+Train a multi-label classification model capable of detecting 14 diseases individually.
 
-### Tespit Edilebilecek Hastalıklar:
-| İngilizce | Türkçe |
-|-----------|--------|
-| Atelectasis | Atelektazi |
-| Cardiomegaly | Kardiyomegali |
-| Effusion | Plevral Efüzyon |
-| Infiltration | İnfiltrasyon |
-| Mass | Kitle |
-| Nodule | Nodül |
-| Pneumonia | Pnömoni (Zatürre) |
-| Pneumothorax | Pnömotoraks |
-| Consolidation | Konsolidasyon |
-| Edema | Pulmoner Ödem |
-| Emphysema | Amfizem |
-| Fibrosis | Fibrozis |
-| Pleural_Thickening | Plevral Kalınlaşma |
-| Hernia | Herni |
+### Detectable Diseases:
+| English | Description |
+|---------|-------------|
+| Atelectasis | Lung collapse |
+| Cardiomegaly | Enlarged heart |
+| Effusion | Pleural effusion |
+| Infiltration | Lung infiltration |
+| Mass | Lung mass |
+| Nodule | Lung nodule |
+| Pneumonia | Lung infection |
+| Pneumothorax | Collapsed lung |
+| Consolidation | Lung consolidation |
+| Edema | Pulmonary edema |
+| Emphysema | Lung emphysema |
+| Fibrosis | Lung fibrosis |
+| Pleural_Thickening | Pleural thickening |
+| Hernia | Hernia |
 
-## 📁 Veri Seti Yapısı
+## 📁 Dataset Structure
 
-RunPod'da veri setinin şu yapıda olması gerekiyor:
+The dataset must be organized in the following structure on RunPod:
 
 ```
 /workspace/data/
-├── Data_Entry_2017.csv          # Ana metadata dosyası
-├── train_val_list_NIH.txt       # Train/val görüntü listesi
-├── test_list_NIH.txt            # Test görüntü listesi
-└── images/                      # veya images-224/
+├── Data_Entry_2017.csv          # Main metadata file
+├── train_val_list_NIH.txt       # Train/val image list
+├── test_list_NIH.txt            # Test image list
+└── images/                      # or images-224/
     ├── 00000001_000.png
     ├── 00000001_001.png
     └── ...
 ```
 
-## 🚀 RunPod'da Eğitim
+## 🚀 Training on RunPod
 
-### 1. Ortamı Hazırla
+### 1. Prepare the Environment
 
 ```bash
-# RunPod terminal'inde
+# In RunPod terminal
 cd /workspace
 
-# Bu repo'yu klonla veya dosyaları yükle
+# Clone this repo or upload files
 git clone https://github.com/wazder/dotshub-h-w-health.git
 cd dotshub-h-w-health/model
 
-# Dependencies yükle
+# Install dependencies
 pip install -r requirements_training.txt
 ```
 
-### 2. Eğitimi Başlat
+### 2. Start Training
 
 ```bash
-# Temel eğitim (önerilen ayarlar)
+# Basic training (recommended settings)
 python train_multilabel.py \
     --data_dir /workspace/data \
     --output_dir /workspace/output \
@@ -64,7 +64,7 @@ python train_multilabel.py \
     --lr 1e-4 \
     --image_size 224
 
-# Daha büyük batch size (eğer GPU belleği yeterliyse)
+# Larger batch size (if GPU memory allows)
 python train_multilabel.py \
     --data_dir /workspace/data \
     --output_dir /workspace/output \
@@ -73,7 +73,7 @@ python train_multilabel.py \
     --lr 2e-4 \
     --image_size 224
 
-# Daha büyük görüntüler için (512x512)
+# For larger images (512x512)
 python train_multilabel.py \
     --data_dir /workspace/data \
     --output_dir /workspace/output \
@@ -83,27 +83,27 @@ python train_multilabel.py \
     --image_size 512
 ```
 
-### 3. Eğitim Parametreleri
+### 3. Training Parameters
 
-| Parametre | Varsayılan | Açıklama |
-|-----------|------------|----------|
-| `--data_dir` | (zorunlu) | Veri setinin yolu |
-| `--output_dir` | ./output | Model çıktı klasörü |
-| `--epochs` | 50 | Epoch sayısı |
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--data_dir` | (required) | Path to the dataset |
+| `--output_dir` | ./output | Model output folder |
+| `--epochs` | 50 | Number of epochs |
 | `--batch_size` | 32 | Batch size |
 | `--lr` | 1e-4 | Learning rate |
-| `--image_size` | 224 | Görüntü boyutu |
-| `--dropout` | 0.5 | Dropout oranı |
-| `--patience` | 10 | Early stopping sabır |
+| `--image_size` | 224 | Image size |
+| `--dropout` | 0.5 | Dropout rate |
+| `--patience` | 10 | Early stopping patience |
 | `--augment` | True | Data augmentation |
-| `--mixed_precision` | True | FP16 eğitim |
+| `--mixed_precision` | True | FP16 training |
 
-## 📊 Beklenen Sonuçlar
+## 📊 Expected Results
 
-İyi eğitilmiş bir modelden beklenen metrikler:
+Expected metrics from a well-trained model:
 
-| Hastalık | Hedef AUC |
-|----------|-----------|
+| Disease | Target AUC |
+|---------|------------|
 | Cardiomegaly | >0.90 |
 | Edema | >0.85 |
 | Consolidation | >0.80 |
@@ -112,58 +112,58 @@ python train_multilabel.py \
 | ... | ... |
 | **Macro Average** | **>0.80** |
 
-## 🔄 Eğitim Sonrası
+## 🔄 Post-Training
 
-### 1. Modeli İndir
+### 1. Download the Model
 
 ```bash
-# RunPod'dan modeli indir
+# Download model from RunPod
 scp runpod:/workspace/output/best_model.pth ./model/
 ```
 
-### 2. Sisteme Entegre Et
+### 2. Integrate into the System
 
-Eğitilen model `model/best_model.pth` olarak kaydedildikten sonra:
+After the trained model is saved as `model/best_model.pth`:
 
-1. `backend/app/services/ai_service_real.py` dosyasını güncelle
-2. Model çıktı sayısını 1'den 14'e değiştir
-3. Sigmoid çıktılarını parse et
+1. Update the `backend/app/services/ai_service_real.py` file
+2. Change model output count from 1 to 14
+3. Parse sigmoid outputs
 
-Detaylı entegrasyon için bir sonraki adımda yardımcı olabilirim.
+I can help with detailed integration in the next step.
 
 ## 🔧 Troubleshooting
 
 ### CUDA Out of Memory
 ```bash
-# Batch size'ı düşür
+# Reduce batch size
 python train_multilabel.py --data_dir /workspace/data --batch_size 16
 ```
 
-### Görüntüler Bulunamıyor
+### Images Not Found
 ```bash
-# Görüntü klasörünü kontrol et
+# Check image folder
 ls /workspace/data/images/ | head
-# veya
+# or
 ls /workspace/data/images-224/images-224/ | head
 ```
 
 ### Slow Training
 ```bash
-# Worker sayısını artır
+# Increase number of workers
 python train_multilabel.py --data_dir /workspace/data --num_workers 8
 ```
 
-## 📈 TensorBoard ile İzleme (Opsiyonel)
+## 📈 Monitoring with TensorBoard (Optional)
 
 ```bash
-# Ayrı bir terminalde
+# In a separate terminal
 tensorboard --logdir /workspace/output/logs --port 6006
 ```
 
-## ⏱️ Tahmini Süre
+## ⏱️ Estimated Time
 
-| GPU | Batch Size | Epoch Süresi | 50 Epoch |
-|-----|------------|--------------|----------|
-| RTX 3090 | 32 | ~15 dk | ~12 saat |
-| A100 | 64 | ~8 dk | ~7 saat |
-| V100 | 32 | ~20 dk | ~17 saat |
+| GPU | Batch Size | Epoch Duration | 50 Epochs |
+|-----|------------|----------------|-----------|
+| RTX 3090 | 32 | ~15 min | ~12 hours |
+| A100 | 64 | ~8 min | ~7 hours |
+| V100 | 32 | ~20 min | ~17 hours |

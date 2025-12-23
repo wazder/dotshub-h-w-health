@@ -76,7 +76,8 @@ class PACSService:
                 "orthanc_id": result.get("ID"),
                 "study_uid": result.get("ParentStudy"),
                 "series_uid": result.get("ParentSeries"),
-                "message": "DICOM başarıyla PACS'a yüklendi"  # Turkish for UI
+                "message": "DICOM successfully uploaded to PACS",
+                "is_mock": False  # Real PACS connection
             }
         except Exception as e:
             logger.error(f"PACS upload error: {e}")
@@ -85,7 +86,7 @@ class PACSService:
                 "orthanc_id": None,
                 "study_uid": None,
                 "series_uid": None,
-                "message": f"PACS yükleme hatası: {str(e)}"  # Turkish for UI
+                "message": f"PACS upload error: {str(e)}"
             }
     
     def _mock_upload(self, dicom_bytes: bytes) -> dict:
@@ -126,7 +127,8 @@ class PACSService:
             "orthanc_id": orthanc_id,
             "study_uid": study_uid,
             "series_uid": series_uid,
-            "message": "[MOCK] DICOM başarıyla simüle PACS'a yüklendi"  # Turkish for UI
+            "message": "[SIMULATION] Image accepted (No real PACS connection)",
+            "is_mock": True  # Flag to indicate mock mode
         }
     
     def get_instance(self, orthanc_id: str) -> Optional[bytes]:
@@ -157,13 +159,13 @@ class PACSService:
             Tuple[bool, str]: (connection_status, message)
         """
         if self.mock_mode:
-            return True, "Mock mod aktif - gerçek PACS bağlantısı yok"  # Turkish for UI
+            return True, "Mock mode active - no real PACS connection"
         
         try:
             system_info = self.orthanc_client.get_system()
-            return True, f"Orthanc {system_info.get('Version', 'unknown')} bağlı"  # Turkish for UI
+            return True, f"Orthanc {system_info.get('Version', 'unknown')} connected"
         except Exception as e:
-            return False, f"PACS bağlantı hatası: {str(e)}"  # Turkish for UI
+            return False, f"PACS connection error: {str(e)}"
 
 
 # Singleton instance

@@ -41,16 +41,16 @@ const UploadZone = ({ onUpload }) => {
                 </svg>
             </div>
 
-            <h3 className="text-xl font-bold mb-2">Röntgen Görüntüsü Yükleyin</h3>
+            <h3 className="text-xl font-bold mb-2">Upload X-Ray Image</h3>
             <p className="text-[var(--text-muted)] max-w-sm text-center mb-8">
-                DICOM (.dcm), NIfTI, PNG veya JPEG formatında görüntü yükleyebilirsiniz. <br />
+                You can upload images in DICOM (.dcm), NIfTI, PNG or JPEG format. <br />
                 <span className="text-[var(--text-muted)] text-xs mt-2 block">
-                    Görüntü yüklendikten sonra yapay zeka analizi başlayacaktır.
+                    AI analysis will begin after the image is uploaded.
                 </span>
             </p>
 
             <button className="btn btn-primary px-8">
-                Dosya Seç
+                Select File
             </button>
         </div>
     );

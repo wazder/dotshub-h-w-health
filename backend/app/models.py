@@ -104,7 +104,7 @@ class AnalysisResponse(BaseModel):
                     "orthanc_id": "abc123",
                     "study_uid": "1.2.3.4",
                     "series_uid": "1.2.3.4.1",
-                    "message": "DICOM başarıyla yüklendi"
+                    "message": "DICOM uploaded successfully"
                 },
                 "ai_analysis": {
                     "probability": 0.89,
@@ -113,13 +113,13 @@ class AnalysisResponse(BaseModel):
                     "confidence": "High",
                     "is_pathology": True,
                     "detected_diseases": [
-                        {"label": "Mass", "label_tr": "Kitle", "probability": 0.89, "description": "Akciğerde kitle tespit edildi"}
+                        {"label": "Mass", "label_tr": "Mass", "probability": 0.89, "description": "Mass detected in lung"}
                     ],
                     "disease_count": 1,
                     "embedding": [0.1, 0.2, 0.3]
                 },
                 "similar_cases": [],
-                "summary": "Analiz tamamlandı"
+                "summary": "Analysis complete"
             }
         }
 

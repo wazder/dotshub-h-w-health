@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import UploadZone from './UploadZone';
 import AnalysisView from './AnalysisView';
 import ResultsView from './ResultsView';
@@ -12,24 +12,33 @@ const Dashboard = ({ onSelectPatient }) => {
     const [currentFile, setCurrentFile] = useState(null);
     const { showToast } = useToast();
     
-    // API entegrasyonu için hook
+    // API integration hook
     const analysis = useAnalysis();
 
+    // Memory leak prevention - Clean up Object URLs
+    useEffect(() => {
+        return () => {
+            if (currentImage && currentImage.startsWith('blob:')) {
+                URL.revokeObjectURL(currentImage);
+            }
+        };
+    }, [currentImage]);
+
     const handleUpload = async (file) => {
-        // Preview için local URL oluştur
+        // Create local URL for preview
         setCurrentImage(URL.createObjectURL(file));
         setCurrentFile(file);
         setStep('analyzing');
         
-        // Gerçek API çağrısı
+        // Real API call
         const result = await analysis.analyze(file, api.analyzeImage);
         
         if (result) {
-            // Başarılı analiz - results ekranına geç
+            // Successful analysis - go to results screen
             setStep('results');
         } else if (analysis.isError) {
-            // Hata durumunda upload ekranına dön ve toast göster
-            showToast(`Analiz hatası: ${analysis.error?.message || 'Bilinmeyen hata'}`, 'error');
+            // Error - return to upload screen and show toast
+            showToast(`Analysis error: ${analysis.error?.message || 'Unknown error'}`, 'error');
             handleReset();
         }
     };
@@ -53,21 +62,21 @@ const Dashboard = ({ onSelectPatient }) => {
                 <div className="flex items-center justify-between mb-8">
                     <div>
                         <h1 className="text-2xl font-bold mb-1">
-                            {step === 'upload' && 'Yeni Görüntü Yükle'}
-                            {step === 'analyzing' && 'Analiz Ediliyor'}
-                            {step === 'results' && 'Klinik Karar Desteği'}
+                            {step === 'upload' && 'Upload New Image'}
+                            {step === 'analyzing' && 'Analyzing'}
+                            {step === 'results' && 'Clinical Decision Support'}
                         </h1>
                         <p className="text-sm text-[var(--text-muted)]">
-                            {step === 'upload' && 'Analiz için röntgen veya DICOM görüntüsü yükleyin.'}
-                            {step === 'analyzing' && (analysis.statusMessage || 'Görüntü analiz ediliyor, lütfen bekleyin...')}
-                            {step === 'results' && 'Benzer vakalar yapay zeka ile eşleştirildi.'}
+                            {step === 'upload' && 'Upload an X-ray or DICOM image for analysis.'}
+                            {step === 'analyzing' && (analysis.statusMessage || 'Image is being analyzed, please wait...')}
+                            {step === 'results' && 'Similar cases matched using artificial intelligence.'}
                         </p>
                     </div>
 
                     {step !== 'upload' && (
                         <div className="flex gap-2">
                             <button onClick={handleReset} className="btn text-sm text-[var(--text-muted)] hover:text-white border border-[var(--border)]">
-                                Yeni Arama
+                                New Search
                             </button>
                         </div>
                     )}

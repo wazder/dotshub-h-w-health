@@ -64,7 +64,13 @@ class VectorSearchService:
         # First check for saved index
         if self._load_index():
             self._initialized = True
+            logger.info(f"✅ Vector index loaded successfully - {len(self.image_ids)} vectors")
             return True
+        
+        # Warn if no pre-built index found
+        logger.warning("⚠️ Pre-built vector_index.npz not found!")
+        logger.warning("⚠️ Building index from scratch may take several minutes...")
+        logger.warning("⚠️ For better performance, run: python build_full_index.py")
         
         # Create index if not found
         logger.info(f"Creating vector index - {sample_size} samples...")
@@ -74,7 +80,8 @@ class VectorSearchService:
             pathology_images = dataset_service.get_pathology_images(limit=sample_size * 2)
             
             if len(pathology_images) == 0:
-                logger.warning("No pathology images found!")
+                logger.warning("⚠️ No pathology images found in dataset!")
+                logger.warning("⚠️ Using mock index - similarity results may not be accurate")
                 self._create_mock_index(dataset_service)
                 self._initialized = True
                 return True
@@ -237,8 +244,9 @@ class VectorSearchService:
                 image_id = self.image_ids[idx]
                 score = float(similarities[idx])
                 
-                # Normalize score to 0-1 range
-                normalized_score = (score + 1) / 2  # Cosine sim [-1, 1] -> [0, 1]
+                # Score is already in 0-1 range for normalized vectors
+                # Clamp to ensure valid range
+                normalized_score = max(0.0, min(1.0, score))
                 
                 results.append((patient_id, image_id, normalized_score))
                 

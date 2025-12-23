@@ -1,26 +1,26 @@
 import React, { useState, useMemo } from 'react';
 
-// Model çıktısı için çeviriler (Multi-Label: 14 hastalık)
+// Disease labels for multi-label model output (14 diseases)
 const DISEASE_LABELS = {
-    'Atelectasis': { tr: 'Atelektazi', desc: 'Akciğerin bir bölümünün çökmesi' },
-    'Cardiomegaly': { tr: 'Kardiyomegali', desc: 'Kalp büyümesi' },
-    'Effusion': { tr: 'Plevral Efüzyon', desc: 'Akciğer zarları arasında sıvı' },
-    'Infiltration': { tr: 'İnfiltrasyon', desc: 'Akciğer dokusuna sıvı/hücre birikimi' },
-    'Mass': { tr: 'Kitle', desc: 'Akciğerde büyük lezyon' },
-    'Nodule': { tr: 'Nodül', desc: 'Akciğerde küçük yuvarlak lezyon' },
-    'Pneumonia': { tr: 'Pnömoni (Zatürre)', desc: 'Akciğer enfeksiyonu' },
-    'Pneumothorax': { tr: 'Pnömotoraks', desc: 'Akciğer ile göğüs duvarı arasında hava - ACİL!' },
-    'Consolidation': { tr: 'Konsolidasyon', desc: 'Akciğer dokusunun yoğunlaşması' },
-    'Edema': { tr: 'Pulmoner Ödem', desc: 'Akciğerlerde sıvı birikimi' },
-    'Emphysema': { tr: 'Amfizem', desc: 'Hava keseciklerinin hasarı (KOAH)' },
-    'Fibrosis': { tr: 'Fibrozis', desc: 'Akciğer dokusunun sertleşmesi' },
-    'Pleural_Thickening': { tr: 'Plevral Kalınlaşma', desc: 'Akciğer zarının kalınlaşması' },
-    'Hernia': { tr: 'Herni', desc: 'Diyafram fıtığı' },
-    'No Finding': { tr: 'Normal - Bulgu Yok', desc: 'Herhangi bir patoloji tespit edilmedi' }
+    'Atelectasis': { tr: 'Atelectasis', desc: 'Partial collapse of lung tissue' },
+    'Cardiomegaly': { tr: 'Cardiomegaly', desc: 'Enlarged heart' },
+    'Effusion': { tr: 'Pleural Effusion', desc: 'Fluid between lung membranes' },
+    'Infiltration': { tr: 'Infiltration', desc: 'Fluid/cell accumulation in lung tissue' },
+    'Mass': { tr: 'Mass', desc: 'Large lesion in lung' },
+    'Nodule': { tr: 'Nodule', desc: 'Small round lesion in lung' },
+    'Pneumonia': { tr: 'Pneumonia', desc: 'Lung infection' },
+    'Pneumothorax': { tr: 'Pneumothorax', desc: 'Air between lung and chest wall - URGENT!' },
+    'Consolidation': { tr: 'Consolidation', desc: 'Densification of lung tissue' },
+    'Edema': { tr: 'Pulmonary Edema', desc: 'Fluid accumulation in lungs' },
+    'Emphysema': { tr: 'Emphysema', desc: 'Damage to air sacs (COPD)' },
+    'Fibrosis': { tr: 'Fibrosis', desc: 'Scarring of lung tissue' },
+    'Pleural_Thickening': { tr: 'Pleural Thickening', desc: 'Thickening of lung membrane' },
+    'Hernia': { tr: 'Hernia', desc: 'Diaphragmatic hernia' },
+    'No Finding': { tr: 'Normal - No Finding', desc: 'No pathology detected' }
 };
 
 const translateDiagnosis = (term) => {
-    if (!term) return 'Bilgi Yok';
+    if (!term) return 'No Information';
     const disease = DISEASE_LABELS[term];
     return disease ? disease.tr : term;
 };
@@ -32,23 +32,23 @@ const getDiseaseInfo = (label) => {
 const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName }) => {
     const [visibleCount, setVisibleCount] = useState(3);
 
-    // API sonucundan verileri çıkar
+    // Extract data from API result
     const { aiDiagnosis, matches } = useMemo(() => {
         if (!analysisResult) {
-            // API sonucu yoksa boş döndür - mock data kullanmıyoruz
+            // Return empty if no API result - not using mock data
             return {
-                aiDiagnosis: { label: 'Error', probability: 0, confidence: 'Yok', isPathology: false },
+                aiDiagnosis: { label: 'Error', probability: 0, confidence: 'None', isPathology: false },
                 matches: []
             };
         }
 
-        // Backend'den gelen veriyi dönüştür
+        // Transform data from backend
         const aiAnalysis = analysisResult.aiAnalysis || {};
         
-        // Birden fazla benzer vaka (yeni format)
-        const similarCases = analysisResult.similarCases || [];
+        // Multiple similar cases (new format)
+        const similarCases = analysisResult.similarCases || {};
         
-        // Benzer vakaları işle
+        // Process similar cases
         let matchList = similarCases.map((sc, idx) => {
             const history = sc.history || {};
             return {
@@ -56,7 +56,7 @@ const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName 
                 patientId: sc.patientId,
                 similarity: (sc.similarityScore * 100).toFixed(1),
                 similarityScore: sc.similarityScore,
-                diagnosis: history.diagnosis || 'Bilgi Yok',
+                diagnosis: history.diagnosis || 'No Information',
                 age: history.age || 0,
                 gender: history.gender || null,
                 imageId: sc.imageId,
@@ -64,7 +64,7 @@ const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName 
             };
         });
 
-        // Eski format desteği (geriye uyumluluk)
+        // Old format support (backward compatibility)
         if (matchList.length === 0 && analysisResult.similarCase) {
             const similarCase = analysisResult.similarCase;
             const history = similarCase.history || {};
@@ -73,7 +73,7 @@ const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName 
                 patientId: similarCase.patientId,
                 similarity: (similarCase.similarityScore * 100).toFixed(1),
                 similarityScore: similarCase.similarityScore,
-                diagnosis: history.diagnosis || 'Bilgi Yok',
+                diagnosis: history.diagnosis || 'No Information',
                 age: history.age || 0,
                 gender: history.gender || null,
                 imageId: similarCase.imageId,
@@ -86,7 +86,7 @@ const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName 
                 label: aiAnalysis.label || 'Error',
                 labelTr: aiAnalysis.labelTr,
                 probability: aiAnalysis.probability || 0,
-                confidence: aiAnalysis.confidence || 'Bilinmiyor',
+                confidence: aiAnalysis.confidence || 'Unknown',
                 isPathology: aiAnalysis.isPathology || false,
                 detectedDiseases: aiAnalysis.detectedDiseases || [],
                 diseaseCount: aiAnalysis.diseaseCount || 0
@@ -99,20 +99,20 @@ const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName 
         setVisibleCount(prev => Math.min(prev + 3, matches.length));
     };
 
-    // Dosya tipini belirle
+    // Determine file type
     const getFileType = () => {
         if (uploadedFileName) {
             const ext = uploadedFileName.split('.').pop()?.toLowerCase();
-            if (ext === 'dcm' || ext === 'dicom') return 'DICOM Görüntüsü';
-            if (ext === 'png') return 'PNG Görüntüsü';
-            if (ext === 'jpg' || ext === 'jpeg') return 'JPEG Görüntüsü';
-            if (ext === 'nii' || ext === 'gz') return 'NIfTI Görüntüsü';
-            return `${ext?.toUpperCase()} Dosyası`;
+            if (ext === 'dcm' || ext === 'dicom') return 'DICOM Image';
+            if (ext === 'png') return 'PNG Image';
+            if (ext === 'jpg' || ext === 'jpeg') return 'JPEG Image';
+            if (ext === 'nii' || ext === 'gz') return 'NIfTI Image';
+            return `${ext?.toUpperCase()} File`;
         }
-        return 'Göğüs Röntgeni';
+        return 'Chest X-Ray';
     };
 
-    // Multi-label sonuçları
+    // Multi-label results
     const isPathology = aiDiagnosis.isPathology;
     const detectedDiseases = aiDiagnosis.detectedDiseases || [];
 
@@ -122,18 +122,18 @@ const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName 
             {/* LEFT: Current Patient (Uploaded Image) */}
             <div className="col-span-6 bg-black flex items-center justify-center relative border-r border-[var(--border)]">
                 {image ? (
-                    <img src={image} alt="Yüklenen Analiz" className="max-h-full max-w-full object-contain" />
+                    <img src={image} alt="Uploaded Analysis" className="max-h-full max-w-full object-contain" />
                 ) : (
-                    <div className="text-[var(--text-muted)]">Görüntü yüklenmedi</div>
+                    <div className="text-[var(--text-muted)]">No image uploaded</div>
                 )}
 
                 {/* Overlay Metadata */}
                 <div className="absolute top-4 left-4 bg-black/70 backdrop-blur px-3 py-1.5 rounded border border-white/10">
-                    <h3 className="text-white text-sm font-bold">Yüklenen Görüntü</h3>
+                    <h3 className="text-white text-sm font-bold">Uploaded Image</h3>
                     <p className="text-[var(--text-muted)] text-xs">{getFileType()}</p>
                 </div>
 
-                {/* AI Diagnosis Badge - Multi-Label Model Sonucu */}
+                {/* AI Diagnosis Badge - Multi-Label Model Result */}
                 <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 backdrop-blur px-6 py-4 rounded-lg border shadow-2xl max-w-md ${
                     isPathology 
                         ? 'bg-red-900/90 border-red-500 shadow-red-500/20' 
@@ -142,11 +142,11 @@ const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName 
                     <div className="text-center">
                         <span className={`font-bold text-lg ${isPathology ? 'text-red-200' : 'text-green-200'}`}>
                             {isPathology 
-                                ? `⚠️ ${detectedDiseases.length} Patoloji Tespit Edildi` 
-                                : '✓ Normal - Bulgu Yok'}
+                                ? `⚠️ ${detectedDiseases.length} Pathology Detected` 
+                                : '✓ Normal - No Finding'}
                         </span>
                         
-                        {/* Tespit edilen hastalıklar listesi */}
+                        {/* Detected diseases list */}
                         {isPathology && detectedDiseases.length > 0 && (
                             <div className="mt-3 space-y-1 text-left">
                                 {detectedDiseases.slice(0, 3).map((disease, idx) => (
@@ -156,13 +156,13 @@ const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName 
                                     </div>
                                 ))}
                                 {detectedDiseases.length > 3 && (
-                                    <p className="text-white/50 text-xs text-center">+{detectedDiseases.length - 3} diğer bulgu</p>
+                                    <p className="text-white/50 text-xs text-center">+{detectedDiseases.length - 3} more findings</p>
                                 )}
                             </div>
                         )}
                         
                         <div className="text-xs text-white/50 mt-3">
-                            ⓘ Bu model 14 farklı akciğer patolojisini tespit edebilir. Kesin tanı için uzman değerlendirmesi gereklidir.
+                            ⓘ This model can detect 14 different lung pathologies. Expert evaluation is required for definitive diagnosis.
                         </div>
                     </div>
                 </div>
@@ -173,19 +173,19 @@ const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName 
                 <div className="p-6 border-b border-[var(--border)] shrink-0">
                     <h2 className="text-xl font-bold flex items-center gap-2">
                         <span className="text-[var(--success)]">●</span>
-                        Benzer Vakalar
+                        Similar Cases
                     </h2>
                     <p className="text-sm text-[var(--text-muted)] mt-1">
-                        Yapay zeka, yüklenen görüntüye benzer {matches.length} vaka buldu.
+                        AI found {matches.length} similar cases to the uploaded image.
                     </p>
                     {/* Summary from Backend - More Professional */}
                     {matches.length > 0 && (
                         <div className="text-xs text-[var(--text-muted)] mt-3 bg-[var(--bg-dark)] p-3 rounded border border-[var(--border)]">
                             <div className="flex items-center gap-2 mb-1">
                                 <span className="text-[var(--success)]">✓</span>
-                                <span className="font-medium text-[var(--text-main)]">Analiz Tamamlandı</span>
+                                <span className="font-medium text-[var(--text-main)]">Analysis Complete</span>
                             </div>
-                            <p>En yakın eşleşme: <span className="text-[var(--primary)]">Hasta #{matches[0]?.patientId}</span> (%{matches[0]?.similarity} benzerlik)</p>
+                            <p>Closest match: <span className="text-[var(--primary)]">Patient #{matches[0]?.patientId}</span> ({matches[0]?.similarity}% similarity)</p>
                         </div>
                     )}
                 </div>
@@ -197,12 +197,12 @@ const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName 
                             onClick={() => onSelectPatient && onSelectPatient(match)}
                             className="card p-4 flex gap-4 hover:bg-[var(--bg-card-hover)] transition group border border-[var(--border)] cursor-pointer"
                         >
-                            {/* Match Image - Gerçek görüntü veya placeholder */}
+                            {/* Match Image - Real image or placeholder */}
                             <div className="w-24 h-24 bg-[var(--bg-dark)] rounded overflow-hidden relative shrink-0">
                                 {match.imageUrl ? (
                                     <img 
                                         src={match.imageUrl}
-                                        alt={`Hasta ${match.patientId} taraması`}
+                                        alt={`Patient ${match.patientId} scan`}
                                         className="w-full h-full object-cover grayscale"
                                         onError={(e) => {
                                             e.target.style.display = 'none';
@@ -225,21 +225,21 @@ const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName 
                             {/* Match Details */}
                             <div className="flex-1 min-w-0">
                                 <div className="flex justify-between items-start mb-1">
-                                    <h4 className="font-bold text-lg text-white">Hasta #{match.id}</h4>
+                                    <h4 className="font-bold text-lg text-white">Patient #{match.id}</h4>
                                     <span className="text-[var(--success)] font-mono font-bold bg-[var(--success)]/10 px-2 py-0.5 rounded text-sm">
-                                        %{match.similarity} Benzerlik
+                                        {match.similarity}% Similarity
                                     </span>
                                 </div>
                                 <p className="text-[var(--primary)] text-sm mb-2 font-medium">{translateDiagnosis(match.diagnosis)}</p>
 
                                 <div className="flex items-center gap-3 text-xs text-[var(--text-muted)]">
                                     {match.age > 0 && (
-                                        <span className="bg-[var(--bg-dark)] px-2 py-1 rounded">Yaş: {match.age}</span>
+                                        <span className="bg-[var(--bg-dark)] px-2 py-1 rounded">Age: {match.age}</span>
                                     )}
-                                    {match.gender && match.gender !== 'Bilinmiyor' && match.gender !== 'Unknown' && (
+                                    {match.gender && match.gender !== 'Unknown' && (
                                         <span className="bg-[var(--bg-dark)] px-2 py-1 rounded">
-                                            {match.gender === 'F' || match.gender === 'Kadın' ? 'Kadın' : 
-                                             match.gender === 'M' || match.gender === 'Erkek' ? 'Erkek' : match.gender}
+                                            {match.gender === 'F' || match.gender === 'Female' ? 'Female' : 
+                                             match.gender === 'M' || match.gender === 'Male' ? 'Male' : match.gender}
                                         </span>
                                     )}
                                 </div>
@@ -258,7 +258,7 @@ const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName 
                                 <line x1="12" y1="8" x2="12" y2="16"></line>
                                 <line x1="8" y1="12" x2="16" y2="12"></line>
                             </svg>
-                            3 Vaka Daha Göster
+                            Show 3 More Cases
                         </button>
                     )}
                 </div>

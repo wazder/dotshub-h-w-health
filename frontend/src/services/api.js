@@ -1,11 +1,11 @@
 /**
- * API Service - Backend ile iletişim katmanı
+ * API Service - Backend communication layer
  * 
- * Bu modül tüm HTTP isteklerini merkezi olarak yönetir.
- * - Otomatik error handling
- * - snake_case → camelCase dönüşümü
- * - Token yönetimi (JWT hazır)
- * - Timeout yönetimi
+ * This module manages all HTTP requests centrally.
+ * - Automatic error handling
+ * - snake_case → camelCase conversion
+ * - Token management (JWT ready)
+ * - Timeout management
  */
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -14,7 +14,7 @@ const API_TIMEOUT = parseInt(import.meta.env.VITE_API_TIMEOUT) || 30000;
 // ==================== Utility Functions ====================
 
 /**
- * snake_case'i camelCase'e dönüştürür
+ * Converts snake_case to camelCase
  * @param {string} str - snake_case string
  * @returns {string} camelCase string
  */
@@ -23,7 +23,7 @@ const toCamelCase = (str) => {
 };
 
 /**
- * camelCase'i snake_case'e dönüştürür
+ * Converts camelCase to snake_case
  * @param {string} str - camelCase string
  * @returns {string} snake_case string
  */
@@ -32,10 +32,10 @@ const toSnakeCase = (str) => {
 };
 
 /**
- * Nesne anahtarlarını dönüştürür (deep)
- * @param {Object} obj - Dönüştürülecek nesne
- * @param {Function} transformer - Anahtar dönüştürücü fonksiyon
- * @returns {Object} Dönüştürülmüş nesne
+ * Transforms object keys (deep)
+ * @param {Object} obj - Object to transform
+ * @param {Function} transformer - Key transformer function
+ * @returns {Object} Transformed object
  */
 const transformKeys = (obj, transformer) => {
     if (obj === null || obj === undefined) {
@@ -57,19 +57,19 @@ const transformKeys = (obj, transformer) => {
 };
 
 /**
- * Backend response'unu frontend formatına dönüştürür
+ * Transforms backend response to frontend format
  */
 export const fromBackend = (data) => transformKeys(data, toCamelCase);
 
 /**
- * Frontend verisini backend formatına dönüştürür
+ * Transforms frontend data to backend format
  */
 export const toBackend = (data) => transformKeys(data, toSnakeCase);
 
 // ==================== Error Classes ====================
 
 /**
- * API hata sınıfı
+ * API error class
  */
 export class ApiError extends Error {
     constructor(message, status, code, details = null) {
@@ -82,20 +82,20 @@ export class ApiError extends Error {
 }
 
 /**
- * Network hata sınıfı
+ * Network error class
  */
 export class NetworkError extends Error {
-    constructor(message = 'Ağ bağlantısı hatası') {
+    constructor(message = 'Network connection error') {
         super(message);
         this.name = 'NetworkError';
     }
 }
 
 /**
- * Timeout hata sınıfı
+ * Timeout error class
  */
 export class TimeoutError extends Error {
-    constructor(message = 'İstek zaman aşımına uğradı') {
+    constructor(message = 'Request timed out') {
         super(message);
         this.name = 'TimeoutError';
     }
@@ -122,10 +122,10 @@ const fetchWithTimeout = async (url, options, timeout = API_TIMEOUT) => {
 };
 
 /**
- * API isteği yapar ve sonucu işler
- * @param {string} endpoint - API endpoint (başında / ile)
+ * Makes API request and processes the result
+ * @param {string} endpoint - API endpoint (with leading /)
  * @param {Object} options - Fetch options
- * @returns {Promise<Object>} API yanıtı (camelCase formatında)
+ * @returns {Promise<Object>} API response (in camelCase format)
  */
 const request = async (endpoint, options = {}) => {
     const url = `${API_BASE_URL}${endpoint}`;
@@ -135,13 +135,13 @@ const request = async (endpoint, options = {}) => {
         ...options.headers
     };
     
-    // JSON body için Content-Type ekle
+    // Add Content-Type for JSON body
     if (options.body && !(options.body instanceof FormData)) {
         headers['Content-Type'] = 'application/json';
         options.body = JSON.stringify(toBackend(options.body));
     }
     
-    // JWT Token varsa ekle (localStorage'dan)
+    // Add JWT Token if available (from localStorage)
     const token = localStorage.getItem('authToken');
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
@@ -164,10 +164,10 @@ const request = async (endpoint, options = {}) => {
             data = await response.text();
         }
         
-        // HTTP hata kontrolü
+        // HTTP error check
         if (!response.ok) {
             throw new ApiError(
-                data.message || data.detail || 'Bir hata oluştu',
+                data.message || data.detail || 'An error occurred',
                 response.status,
                 data.errorCode || 'UNKNOWN_ERROR',
                 data.details
@@ -184,15 +184,15 @@ const request = async (endpoint, options = {}) => {
         
         // Network error
         if (error instanceof TypeError && error.message === 'Failed to fetch') {
-            throw new NetworkError('Backend sunucusuna bağlanılamadı. Sunucunun çalıştığından emin olun.');
+            throw new NetworkError('Could not connect to backend server. Make sure the server is running.');
         }
         
-        // ApiError zaten doğru formatta
+        // ApiError already in correct format
         if (error instanceof ApiError) {
             throw error;
         }
         
-        // Diğer hatalar
+        // Other errors
         throw new ApiError(error.message, 0, 'CLIENT_ERROR');
     }
 };
@@ -200,7 +200,7 @@ const request = async (endpoint, options = {}) => {
 // ==================== API Methods ====================
 
 /**
- * GET isteği
+ * GET request
  */
 export const get = (endpoint, params = {}) => {
     const searchParams = new URLSearchParams();
@@ -217,7 +217,7 @@ export const get = (endpoint, params = {}) => {
 };
 
 /**
- * POST isteği (JSON body)
+ * POST request (JSON body)
  */
 export const post = (endpoint, body = {}) => {
     return request(endpoint, {
@@ -227,18 +227,18 @@ export const post = (endpoint, body = {}) => {
 };
 
 /**
- * POST isteği (FormData - dosya yükleme için)
+ * POST request (FormData - for file uploads)
  */
 export const postFormData = (endpoint, formData) => {
     return request(endpoint, {
         method: 'POST',
         body: formData
-        // Content-Type otomatik ayarlanır (boundary ile)
+        // Content-Type is set automatically (with boundary)
     });
 };
 
 /**
- * PUT isteği
+ * PUT request
  */
 export const put = (endpoint, body = {}) => {
     return request(endpoint, {
@@ -248,7 +248,7 @@ export const put = (endpoint, body = {}) => {
 };
 
 /**
- * DELETE isteği
+ * DELETE request
  */
 export const del = (endpoint) => {
     return request(endpoint, { method: 'DELETE' });
@@ -257,14 +257,14 @@ export const del = (endpoint) => {
 // ==================== Domain-Specific API Functions ====================
 
 /**
- * Sistem sağlık kontrolü
+ * System health check
  */
 export const checkHealth = () => get('/api/health');
 
 /**
- * Tıbbi görüntü analizi
- * @param {File} file - Yüklenecek dosya (DICOM, PNG, JPEG, etc.)
- * @returns {Promise<Object>} Analiz sonucu
+ * Medical image analysis
+ * @param {File} file - File to upload (DICOM, PNG, JPEG, etc.)
+ * @returns {Promise<Object>} Analysis result
  */
 export const analyzeImage = async (file) => {
     const formData = new FormData();
@@ -274,13 +274,13 @@ export const analyzeImage = async (file) => {
 };
 
 /**
- * Hasta bilgisi getir
- * @param {string} patientId - Hasta ID
+ * Get patient information
+ * @param {string} patientId - Patient ID
  */
 export const getPatient = (patientId) => get(`/api/patients/${patientId}`);
 
 /**
- * Tüm hastaları listele
+ * List all patients
  */
 export const listPatients = () => get('/api/patients');
 
