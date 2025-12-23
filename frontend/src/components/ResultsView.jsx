@@ -31,6 +31,7 @@ const getDiseaseInfo = (label) => {
 
 const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName }) => {
     const [visibleCount, setVisibleCount] = useState(3);
+    const [filterByDisease, setFilterByDisease] = useState(false);
 
     // Extract data from API result
     const { aiDiagnosis, matches } = useMemo(() => {
@@ -96,7 +97,7 @@ const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName 
     }, [analysisResult]);
 
     const handleExpand = () => {
-        setVisibleCount(prev => Math.min(prev + 3, matches.length));
+        setVisibleCount(prev => prev + 3);
     };
 
     // Determine file type
@@ -116,6 +117,28 @@ const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName 
     const isPathology = aiDiagnosis.isPathology;
     const detectedDiseases = aiDiagnosis.detectedDiseases || [];
 
+    // Filter matches by detected diseases if enabled
+    const filteredMatches = useMemo(() => {
+        if (!filterByDisease || detectedDiseases.length === 0) {
+            return matches;
+        }
+        
+        // Get detected disease labels
+        const detectedLabels = detectedDiseases.map(d => d.label);
+        
+        // Filter matches that have at least one matching disease
+        const matchingCases = matches.filter(match => 
+            detectedLabels.includes(match.diagnosis)
+        );
+        
+        // If no matching cases found, return all matches
+        if (matchingCases.length === 0) {
+            return matches;
+        }
+        
+        return matchingCases;
+    }, [matches, filterByDisease, detectedDiseases]);
+
     return (
         <div className="w-full h-full grid grid-cols-12 overflow-hidden">
 
@@ -134,7 +157,7 @@ const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName 
                 </div>
 
                 {/* AI Diagnosis Badge - Multi-Label Model Result */}
-                <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 backdrop-blur px-6 py-4 rounded-lg border shadow-2xl max-w-md ${
+                <div className={`absolute bottom-6 left-6 right-6 backdrop-blur px-6 py-4 rounded-lg border shadow-2xl ${
                     isPathology 
                         ? 'bg-red-900/90 border-red-500 shadow-red-500/20' 
                         : 'bg-green-900/90 border-green-500 shadow-green-500/20'
@@ -146,24 +169,16 @@ const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName 
                                 : '✓ Normal - No Finding'}
                         </span>
                         
-                        {/* Detected diseases list */}
                         {isPathology && detectedDiseases.length > 0 && (
-                            <div className="mt-3 space-y-1 text-left">
-                                {detectedDiseases.slice(0, 3).map((disease, idx) => (
+                            <div className="mt-3 grid grid-cols-2 gap-2">
+                                {detectedDiseases.map((disease, idx) => (
                                     <div key={idx} className="flex items-center justify-between bg-black/30 px-3 py-1.5 rounded">
                                         <span className="text-white text-sm">{disease.labelTr || disease.label}</span>
                                         <span className="text-red-300 text-xs font-mono">%{(disease.probability * 100).toFixed(0)}</span>
                                     </div>
                                 ))}
-                                {detectedDiseases.length > 3 && (
-                                    <p className="text-white/50 text-xs text-center">+{detectedDiseases.length - 3} more findings</p>
-                                )}
                             </div>
                         )}
-                        
-                        <div className="text-xs text-white/50 mt-3">
-                            ⓘ This model can detect 14 different lung pathologies. Expert evaluation is required for definitive diagnosis.
-                        </div>
                     </div>
                 </div>
             </div>
@@ -171,27 +186,44 @@ const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName 
             {/* RIGHT: Related Matches List */}
             <div className="col-span-6 bg-[var(--bg-card)] flex flex-col h-full overflow-hidden">
                 <div className="p-6 border-b border-[var(--border)] shrink-0">
-                    <h2 className="text-xl font-bold flex items-center gap-2">
-                        <span className="text-[var(--success)]">●</span>
-                        Similar Cases
-                    </h2>
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-bold flex items-center gap-2">
+                            <span className="text-[var(--success)]">●</span>
+                            Similar Cases
+                        </h2>
+                        {isPathology && detectedDiseases.length > 0 && (
+                            <button
+                                onClick={() => setFilterByDisease(!filterByDisease)}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                                    filterByDisease
+                                        ? 'bg-[var(--primary)] text-white'
+                                        : 'bg-[var(--bg-dark)] text-[var(--text-muted)] hover:text-white border border-[var(--border)]'
+                                }`}
+                            >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                                </svg>
+                                {filterByDisease ? 'Filtering by Disease' : 'Filter by Disease'}
+                            </button>
+                        )}
+                    </div>
                     <p className="text-sm text-[var(--text-muted)] mt-1">
-                        AI found {matches.length} similar cases to the uploaded image.
+                        AI found {filteredMatches.length} similar cases{filterByDisease && matches.length !== filteredMatches.length ? ` (${matches.length} total)` : ''} to the uploaded image.
                     </p>
                     {/* Summary from Backend - More Professional */}
-                    {matches.length > 0 && (
+                    {filteredMatches.length > 0 && (
                         <div className="text-xs text-[var(--text-muted)] mt-3 bg-[var(--bg-dark)] p-3 rounded border border-[var(--border)]">
                             <div className="flex items-center gap-2 mb-1">
                                 <span className="text-[var(--success)]">✓</span>
                                 <span className="font-medium text-[var(--text-main)]">Analysis Complete</span>
                             </div>
-                            <p>Closest match: <span className="text-[var(--primary)]">Patient #{matches[0]?.patientId}</span> ({matches[0]?.similarity}% similarity)</p>
+                            <p>Closest match: <span className="text-[var(--primary)]">Patient #{filteredMatches[0]?.patientId}</span> ({filteredMatches[0]?.similarity}% similarity)</p>
                         </div>
                     )}
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                    {matches.slice(0, visibleCount).map((match, idx) => (
+                    {filteredMatches.slice(0, visibleCount).map((match, idx) => (
                         <div
                             key={match.id}
                             onClick={() => onSelectPatient && onSelectPatient(match)}
@@ -248,7 +280,7 @@ const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName 
                     ))}
 
                     {/* Expand Button */}
-                    {visibleCount < matches.length && (
+                    {visibleCount < filteredMatches.length && (
                         <button
                             onClick={handleExpand}
                             className="w-full py-3 mt-4 flex items-center justify-center gap-2 text-sm font-bold text-[var(--text-muted)] hover:text-white border border-dashed border-[var(--border)] hover:border-[var(--primary)] rounded-xl transition-all hover:bg-[var(--bg-card-hover)]"
@@ -258,7 +290,7 @@ const ResultsView = ({ image, onSelectPatient, analysisResult, uploadedFileName 
                                 <line x1="12" y1="8" x2="12" y2="16"></line>
                                 <line x1="8" y1="12" x2="16" y2="12"></line>
                             </svg>
-                            Show 3 More Cases
+                            Show {Math.min(3, filteredMatches.length - visibleCount)} More Cases ({filteredMatches.length - visibleCount} remaining)
                         </button>
                     )}
                 </div>

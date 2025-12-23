@@ -16,6 +16,12 @@ function App() {
   const [searchError, setSearchError] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
   const [cameFromResults, setCameFromResults] = useState(false);
+  
+  // Dashboard state lifted to App level to preserve analysis results
+  const [dashboardStep, setDashboardStep] = useState('upload');
+  const [dashboardImage, setDashboardImage] = useState(null);
+  const [dashboardFile, setDashboardFile] = useState(null);
+  const [dashboardAnalysisResult, setDashboardAnalysisResult] = useState(null);
 
   const handleLogin = (username) => {
     setIsLoggedIn(true);
@@ -84,13 +90,22 @@ function App() {
       case 'profile': return <ProfileView onBack={() => setCurrentView('dashboard')} />;
       case 'settings': return <SettingsView onBack={() => setCurrentView('dashboard')} />;
       case 'patient_detail': return <PatientDetailView patient={selectedPatient} onBack={handleBackFromPatientDetail} returnToResults={cameFromResults ? handleBackFromPatientDetail : null} />;
-      default: return <Dashboard onSelectPatient={handlePatientSelect} />;
+      default: return <Dashboard 
+        onSelectPatient={handlePatientSelect}
+        step={dashboardStep}
+        setStep={setDashboardStep}
+        currentImage={dashboardImage}
+        setCurrentImage={setDashboardImage}
+        currentFile={dashboardFile}
+        setCurrentFile={setDashboardFile}
+        analysisResult={dashboardAnalysisResult}
+        setAnalysisResult={setDashboardAnalysisResult}
+      />;
     }
   };
 
   return (
     <div className="min-h-screen bg-[var(--bg-dark)] text-[var(--text-main)] w-full h-screen overflow-hidden flex flex-col">
-      /* Top Header */
       <header className="h-14 border-b border-[var(--border)] bg-[var(--bg-card)] flex items-center px-6 justify-between flex-shrink-0 relative z-50">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentView('dashboard')}>
           <span className="text-lg font-bold text-[var(--text-main)]">ellie</span>

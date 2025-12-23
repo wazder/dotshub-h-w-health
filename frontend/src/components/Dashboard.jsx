@@ -6,25 +6,34 @@ import api from '../services/api';
 import { useAnalysis } from '../hooks/useApi';
 import { useToast } from './ToastProvider';
 
-const Dashboard = ({ onSelectPatient }) => {
-    const [step, setStep] = useState('upload'); // upload, analyzing, results
-    const [currentImage, setCurrentImage] = useState(null);
-    const [currentFile, setCurrentFile] = useState(null);
+const Dashboard = ({ 
+    onSelectPatient, 
+    step, 
+    setStep, 
+    currentImage, 
+    setCurrentImage, 
+    currentFile, 
+    setCurrentFile,
+    analysisResult,
+    setAnalysisResult
+}) => {
     const { showToast } = useToast();
     
     // API integration hook
     const analysis = useAnalysis();
 
-    // Memory leak prevention - Clean up Object URLs
+    // Sync analysis result to parent state when it changes
     useEffect(() => {
-        return () => {
-            if (currentImage && currentImage.startsWith('blob:')) {
-                URL.revokeObjectURL(currentImage);
-            }
-        };
-    }, [currentImage]);
+        if (analysis.result) {
+            setAnalysisResult(analysis.result);
+        }
+    }, [analysis.result, setAnalysisResult]);
 
     const handleUpload = async (file) => {
+        // Clean up old blob URL if exists
+        if (currentImage && currentImage.startsWith('blob:')) {
+            URL.revokeObjectURL(currentImage);
+        }
         // Create local URL for preview
         setCurrentImage(URL.createObjectURL(file));
         setCurrentFile(file);
@@ -48,11 +57,19 @@ const Dashboard = ({ onSelectPatient }) => {
     };
 
     const handleReset = () => {
+        // Clean up old blob URL to prevent memory leak
+        if (currentImage && currentImage.startsWith('blob:')) {
+            URL.revokeObjectURL(currentImage);
+        }
         setStep('upload');
         setCurrentImage(null);
         setCurrentFile(null);
+        setAnalysisResult(null);
         analysis.reset();
     };
+
+    // Use stored analysis result if available
+    const displayResult = analysis.result || analysisResult;
 
     return (
         <div className="w-full h-full p-6 relative">
@@ -98,7 +115,7 @@ const Dashboard = ({ onSelectPatient }) => {
                         <ResultsView 
                             image={currentImage} 
                             onSelectPatient={onSelectPatient}
-                            analysisResult={analysis.result}
+                            analysisResult={displayResult}
                             uploadedFileName={currentFile?.name}
                         />
                     )}

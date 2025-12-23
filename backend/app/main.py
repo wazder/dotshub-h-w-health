@@ -48,6 +48,9 @@ from .services.vector_search_service import vector_search_service as search_serv
 # Data service now uses dataset_service
 from .services.data_service import data_service
 
+# Synthetic data for demo patients
+from .services.synthetic_data import synthetic_data_service
+
 # Load .env file
 load_dotenv()
 
@@ -240,7 +243,7 @@ async def analyze_image(
         logger.info("Step 3/4: Searching for similar cases...")
         similar_results = search_service.search_similar(
             query_vector=ai_result["embedding"],
-            top_k=5
+            top_k=50  # Return more results for "show more" functionality
         )
         
         # 5. Get Similar Cases Information
@@ -426,32 +429,80 @@ async def get_patient(patient_id: str):
         images = patient.get('images', [])
         scans = []
         
+        # Check for enhanced synthetic data first to get scan dates
+        enhanced_data = synthetic_data_service.get_enhanced_patient(patient_id)
+        scan_dates = enhanced_data.get('scan_dates', {}) if enhanced_data else {}
+        
         for idx, image_id in enumerate(images[:6]):
             image_info = dataset_service.get_image_info(image_id)
             if image_info:
-                # NIH dataset doesn't have actual scan dates
+                # Use synthetic date if available, otherwise generate a reasonable date
+                scan_date = scan_dates.get(image_id, 'Date Unknown')
                 scans.append({
                     'id': image_id,
-                    'date': 'Date Unknown',  # Real date not available in NIH dataset
+                    'date': scan_date,
                     'type': image_info.get('view_position', 'PA'),
                     'status': 'Abnormal' if image_info.get('has_pathology') else 'Normal',
                     'imageUrl': f"/api/images/{image_id}",
                     'findings': image_info.get('finding_labels', '')
                 })
         
-        return {
-            "success": True,
-            "patient": {
-                **patient,
-                "scans": scans,
-                "diagnosisHistory": [
+        response_patient = {
+            **patient,
+            "scans": scans,
+            "diagnosisHistory": [
+                {
+                    "date": "Date Unknown",
+                    "diagnosis": patient.get('diagnosis', 'No Information'),
+                    "physician": "NIH Dataset - Retrospective Data"
+                }
+            ]
+        }
+        
+        # Merge enhanced data if available
+        if enhanced_data:
+            response_patient["enhanced"] = True
+            response_patient["name"] = enhanced_data.get("name")
+            response_patient["date_of_birth"] = enhanced_data.get("date_of_birth")
+            response_patient["blood_type"] = enhanced_data.get("blood_type")
+            response_patient["height"] = enhanced_data.get("height")
+            response_patient["weight"] = enhanced_data.get("weight")
+            response_patient["bmi"] = enhanced_data.get("bmi")
+            response_patient["occupation"] = enhanced_data.get("occupation")
+            response_patient["smoking_status"] = enhanced_data.get("smoking_status")
+            response_patient["alcohol_use"] = enhanced_data.get("alcohol_use")
+            response_patient["allergies"] = enhanced_data.get("allergies")
+            response_patient["chronic_conditions"] = enhanced_data.get("chronic_conditions")
+            response_patient["primary_diagnosis"] = enhanced_data.get("primary_diagnosis")
+            response_patient["diagnosis_date"] = enhanced_data.get("diagnosis_date")
+            response_patient["attending_physician"] = enhanced_data.get("attending_physician")
+            response_patient["department"] = enhanced_data.get("department")
+            response_patient["chief_complaint"] = enhanced_data.get("chief_complaint")
+            response_patient["history_of_present_illness"] = enhanced_data.get("history_of_present_illness")
+            response_patient["physical_examination"] = enhanced_data.get("physical_examination")
+            response_patient["laboratory_results"] = enhanced_data.get("laboratory_results")
+            response_patient["imaging_findings"] = enhanced_data.get("imaging_findings")
+            response_patient["treatment_plan"] = enhanced_data.get("treatment_plan")
+            response_patient["medications"] = enhanced_data.get("medications")
+            response_patient["clinical_notes"] = enhanced_data.get("clinical_notes")
+            response_patient["prognosis"] = enhanced_data.get("prognosis")
+            response_patient["follow_up"] = enhanced_data.get("follow_up")
+            
+            # Use full diagnosis history from enhanced data
+            if enhanced_data.get("diagnosis_history"):
+                response_patient["diagnosisHistory"] = enhanced_data.get("diagnosis_history")
+            else:
+                response_patient["diagnosisHistory"] = [
                     {
-                        "date": "Date Unknown",  # Real date not available
-                        "diagnosis": patient.get('diagnosis', 'No Information'),
-                        "physician": "NIH Dataset - Retrospective Data"
+                        "date": enhanced_data.get("diagnosis_date", "Date Unknown"),
+                        "diagnosis": enhanced_data.get("primary_diagnosis", patient.get('diagnosis', 'No Information')),
+                        "physician": enhanced_data.get("attending_physician", "NIH Dataset")
                     }
                 ]
-            }
+        
+        return {
+            "success": True,
+            "patient": response_patient
         }
     
     patient = data_service.get_patient_history(patient_id)

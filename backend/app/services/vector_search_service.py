@@ -201,7 +201,7 @@ class VectorSearchService:
         except Exception as e:
             logger.error(f"Index saving error: {e}")
     
-    def search_similar(self, query_vector: List[float], top_k: int = 5) -> List[Tuple[str, str, float]]:
+    def search_similar(self, query_vector: List[float], top_k: int = 50) -> List[Tuple[str, str, float]]:
         """
         Find similar cases.
         
@@ -226,13 +226,13 @@ class VectorSearchService:
             # Calculate cosine similarity
             similarities = np.dot(self.embeddings, query)
             
-            # Find top k indices
-            top_indices = np.argsort(similarities)[::-1][:top_k]
+            # Find all indices sorted by similarity (no limit here)
+            all_sorted_indices = np.argsort(similarities)[::-1]
             
             results = []
             seen_patients = set()
             
-            for idx in top_indices:
+            for idx in all_sorted_indices:
                 patient_id = self.patient_ids[idx]
                 
                 # Don't add same patient multiple times
