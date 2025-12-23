@@ -97,6 +97,12 @@ class DatasetService:
                             pass
                     
                     # Görüntü bilgisi
+                    # Tüm 14 hastalığı patoloji olarak kabul et
+                    all_diseases = ['Atelectasis', 'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass',
+                                    'Nodule', 'Pneumonia', 'Pneumothorax', 'Consolidation', 'Edema',
+                                    'Emphysema', 'Fibrosis', 'Pleural_Thickening', 'Hernia']
+                    has_any_disease = any(disease in finding_labels for disease in all_diseases)
+                    
                     image_info = {
                         'image_id': image_id,
                         'patient_id': patient_id,
@@ -104,7 +110,7 @@ class DatasetService:
                         'age': age,
                         'gender': 'Erkek' if gender == 'M' else 'Kadın' if gender == 'F' else gender,
                         'view_position': view_pos,
-                        'has_pathology': 'Mass' in finding_labels or 'Nodule' in finding_labels
+                        'has_pathology': has_any_disease
                     }
                     
                     self._image_cache[image_id] = image_info
