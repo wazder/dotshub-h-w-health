@@ -1,9 +1,9 @@
 """
-Image Converter Service - Çoklu Format Dönüştürücü
-Desteklenen formatlar: DICOM, NIFTI, PNG, JPEG, JPG
+Image Converter Service - Multi-Format Converter
+Supported formats: DICOM, NIFTI, PNG, JPEG, JPG
 
-NIH ChestX-ray14 dataset PNG formatında olduğu için
-gelen görüntüleri PNG'ye çevirip modele veririz.
+Since NIH ChestX-ray14 dataset is in PNG format,
+we convert incoming images to PNG and feed to model.
 """
 
 import logging
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 class ImageFormat(Enum):
-    """Desteklenen görüntü formatları."""
+    """Supported image formats."""
     DICOM = "dicom"
     NIFTI = "nifti"
     PNG = "png"
@@ -46,22 +46,22 @@ class ImageFormat(Enum):
 
 class ImageConverterService:
     """
-    Çoklu format görüntü dönüştürücü.
+    Multi-format image converter.
     
-    Desteklenen formatlar:
+    Supported formats:
     - DICOM (.dcm)
     - NIFTI (.nii, .nii.gz)
     - PNG (.png)
     - JPEG/JPG (.jpeg, .jpg)
     
-    NIH ChestX-ray14 dataset özellikleri:
+    NIH ChestX-ray14 dataset specifications:
     - Format: PNG
-    - Boyut: 1024x1024 piksel
-    - Kanal: Grayscale (1 kanal)
-    - Bit derinliği: 8-bit (0-255)
+    - Size: 1024x1024 pixels
+    - Channel: Grayscale (1 channel)
+    - Bit depth: 8-bit (0-255)
     """
     
-    # NIH ChestX-ray14 dataset boyutu
+    # NIH ChestX-ray14 dataset size
     TARGET_SIZE = (1024, 1024)
     
     # Magic bytes for format detection
@@ -72,10 +72,10 @@ class ImageConverterService:
     
     def __init__(self):
         self._log_available_formats()
-        logger.info("Image Converter Service başlatıldı")
+        logger.info("Image Converter Service initialized")
     
     def _log_available_formats(self):
-        """Kullanılabilir formatları logla."""
+        """Log available formats."""
         formats = []
         if PIL_AVAILABLE:
             formats.extend(["PNG", "JPEG", "JPG"])
@@ -83,25 +83,25 @@ class ImageConverterService:
             formats.append("DICOM")
         if NIBABEL_AVAILABLE:
             formats.append("NIFTI")
-        logger.info(f"Desteklenen formatlar: {', '.join(formats)}")
+        logger.info(f"Supported formats: {', '.join(formats)}")
         
         if not PIL_AVAILABLE:
-            logger.warning("PIL/Pillow yüklü değil! pip install Pillow")
+            logger.warning("PIL/Pillow not installed! pip install Pillow")
         if not NIBABEL_AVAILABLE:
-            logger.warning("nibabel yüklü değil! NIFTI desteği için: pip install nibabel")
+            logger.warning("nibabel not installed! For NIFTI support: pip install nibabel")
     
     def detect_format(self, image_bytes: bytes, filename: Optional[str] = None) -> ImageFormat:
         """
-        Görüntü formatını otomatik algılar.
+        Auto-detect image format.
         
         Args:
-            image_bytes: Görüntü byte içeriği
-            filename: Opsiyonel dosya adı (uzantı kontrolü için)
+            image_bytes: Image byte content
+            filename: Optional filename (for extension check)
             
         Returns:
-            ImageFormat: Algılanan format
+            ImageFormat: Detected format
         """
-        # 1. Dosya adından algıla
+        # 1. Detect from filename
         if filename:
             filename_lower = filename.lower()
             if filename_lower.endswith('.dcm'):
@@ -115,16 +115,16 @@ class ImageConverterService:
             elif filename_lower.endswith('.jpg'):
                 return ImageFormat.JPG
         
-        # 2. Magic bytes'dan algıla
+        # 2. Detect from magic bytes
         for magic, fmt in self.MAGIC_BYTES.items():
             if image_bytes[:len(magic)] == magic:
                 return fmt
         
-        # 3. DICOM kontrolü (DICM magic at offset 128)
+        # 3. DICOM check (DICM magic at offset 128)
         if len(image_bytes) > 132 and image_bytes[128:132] == b'DICM':
             return ImageFormat.DICOM
         
-        # 4. NIFTI kontrolü
+        # 4. NIFTI check
         if len(image_bytes) > 4:
             # NIfTI-1 header size check (348 bytes)
             if image_bytes[:2] in [b'\x5c\x01', b'\x01\x5c']:  # 348 in little/big endian
@@ -143,26 +143,26 @@ class ImageConverterService:
         image_format: Optional[ImageFormat] = None
     ) -> Optional[np.ndarray]:
         """
-        Herhangi bir formattaki görüntüyü numpy array'e dönüştürür.
+        Convert any format image to numpy array.
         
         Args:
-            image_bytes: Görüntü byte içeriği
-            target_size: Hedef boyut (width, height)
-            filename: Opsiyonel dosya adı
-            image_format: Opsiyonel format (None ise otomatik algılanır)
+            image_bytes: Image byte content
+            target_size: Target size (width, height)
+            filename: Optional filename
+            image_format: Optional format (auto-detect if None)
             
         Returns:
-            np.ndarray: Normalize edilmiş görüntü (0-1 arası, float32, shape: H,W,1)
+            np.ndarray: Normalized image (0-1 range, float32, shape: H,W,1)
         """
         target_size = target_size or self.TARGET_SIZE
         
-        # Format algıla
+        # Detect format
         if image_format is None:
             image_format = self.detect_format(image_bytes, filename)
         
-        logger.info(f"Görüntü formatı: {image_format.value}")
+        logger.info(f"Image format: {image_format.value}")
         
-        # Formata göre dönüştür
+        # Convert by format
         if image_format == ImageFormat.DICOM:
             return self.dicom_to_numpy(image_bytes, target_size)
         elif image_format == ImageFormat.NIFTI:
@@ -170,7 +170,7 @@ class ImageConverterService:
         elif image_format in [ImageFormat.PNG, ImageFormat.JPEG, ImageFormat.JPG]:
             return self.standard_image_to_numpy(image_bytes, target_size)
         else:
-            logger.error(f"Bilinmeyen format: {image_format}")
+            logger.error(f"Unknown format: {image_format}")
             return None
     
     def dicom_to_numpy(
@@ -179,42 +179,42 @@ class ImageConverterService:
         target_size: Optional[Tuple[int, int]] = None
     ) -> Optional[np.ndarray]:
         """
-        DICOM dosyasını numpy array'e dönüştürür.
+        Convert DICOM file to numpy array.
         """
         if not PYDICOM_AVAILABLE:
-            logger.error("pydicom yüklü değil!")
+            logger.error("pydicom not installed!")
             return None
         
         if not PIL_AVAILABLE:
-            logger.error("PIL/Pillow yüklü değil!")
+            logger.error("PIL/Pillow not installed!")
             return None
             
         target_size = target_size or self.TARGET_SIZE
         
         try:
-            # DICOM oku
+            # Read DICOM
             ds = pydicom.dcmread(BytesIO(dicom_bytes))
-            logger.info(f"DICOM okundu - Modality: {getattr(ds, 'Modality', 'Unknown')}")
+            logger.info(f"DICOM read - Modality: {getattr(ds, 'Modality', 'Unknown')}")
             
-            # Pixel array al
+            # Get pixel array
             pixel_array = ds.pixel_array
             
-            # VOI LUT uygula
+            # Apply VOI LUT
             pixel_array = apply_voi_lut(pixel_array, ds)
             
-            # 0-255 normalize
+            # Normalize to 0-255
             pixel_array = self._normalize_to_uint8(pixel_array)
             
-            # MONOCHROME1 kontrolü
+            # MONOCHROME1 check
             if hasattr(ds, 'PhotometricInterpretation'):
                 if ds.PhotometricInterpretation == "MONOCHROME1":
                     pixel_array = 255 - pixel_array
             
-            # PIL Image'e çevir ve işle
+            # Convert to PIL Image and process
             return self._process_array(pixel_array, target_size)
             
         except Exception as e:
-            logger.error(f"DICOM dönüşüm hatası: {e}", exc_info=True)
+            logger.error(f"DICOM conversion error: {e}", exc_info=True)
             return None
     
     def nifti_to_numpy(
@@ -223,57 +223,57 @@ class ImageConverterService:
         target_size: Optional[Tuple[int, int]] = None
     ) -> Optional[np.ndarray]:
         """
-        NIFTI dosyasını numpy array'e dönüştürür.
+        Convert NIFTI file to numpy array.
         
-        Not: NIFTI 3D/4D olabilir. Orta dilimi alırız.
+        Note: NIFTI can be 3D/4D. We take the middle slice.
         """
         if not NIBABEL_AVAILABLE:
-            logger.error("nibabel yüklü değil! pip install nibabel")
+            logger.error("nibabel not installed! pip install nibabel")
             return None
         
         if not PIL_AVAILABLE:
-            logger.error("PIL/Pillow yüklü değil!")
+            logger.error("PIL/Pillow not installed!")
             return None
             
         target_size = target_size or self.TARGET_SIZE
         
         try:
-            # NIFTI oku (BytesIO'dan)
-            # nibabel doğrudan bytes'tan okuyamaz, geçici çözüm
+            # Read NIFTI (from BytesIO)
+            # nibabel cannot read directly from bytes, workaround needed
             import tempfile
             import os
             
-            # Geçici dosyaya yaz
+            # Write to temp file
             with tempfile.NamedTemporaryFile(suffix='.nii.gz', delete=False) as tmp:
                 tmp.write(nifti_bytes)
                 tmp_path = tmp.name
             
             try:
-                # NIFTI yükle
+                # Load NIFTI
                 nii = nib.load(tmp_path)
                 data = nii.get_fdata()
-                logger.info(f"NIFTI okundu - Shape: {data.shape}")
+                logger.info(f"NIFTI read - Shape: {data.shape}")
                 
-                # 3D/4D ise orta dilimi al
+                # Take middle slice for 3D/4D
                 if len(data.shape) >= 3:
                     mid_slice = data.shape[2] // 2
                     pixel_array = data[:, :, mid_slice]
                     if len(data.shape) == 4:
-                        pixel_array = pixel_array[:, :, 0]  # İlk zaman noktası
+                        pixel_array = pixel_array[:, :, 0]  # First time point
                 else:
                     pixel_array = data
                 
-                # 0-255 normalize
+                # Normalize to 0-255
                 pixel_array = self._normalize_to_uint8(pixel_array)
                 
                 return self._process_array(pixel_array, target_size)
                 
             finally:
-                # Geçici dosyayı sil
+                # Delete temp file
                 os.unlink(tmp_path)
             
         except Exception as e:
-            logger.error(f"NIFTI dönüşüm hatası: {e}", exc_info=True)
+            logger.error(f"NIFTI conversion error: {e}", exc_info=True)
             return None
     
     def standard_image_to_numpy(
@@ -282,38 +282,38 @@ class ImageConverterService:
         target_size: Optional[Tuple[int, int]] = None
     ) -> Optional[np.ndarray]:
         """
-        PNG/JPEG/JPG dosyasını numpy array'e dönüştürür.
+        Convert PNG/JPEG/JPG file to numpy array.
         """
         if not PIL_AVAILABLE:
-            logger.error("PIL/Pillow yüklü değil!")
+            logger.error("PIL/Pillow not installed!")
             return None
             
         target_size = target_size or self.TARGET_SIZE
         
         try:
             image = Image.open(BytesIO(image_bytes))
-            logger.info(f"Görüntü okundu - Size: {image.size}, Mode: {image.mode}")
+            logger.info(f"Image read - Size: {image.size}, Mode: {image.mode}")
             
-            # Grayscale'e çevir
+            # Convert to grayscale
             if image.mode != 'L':
                 image = image.convert('L')
             
-            # Yeniden boyutlandır
+            # Resize
             if image.size != target_size:
                 image = image.resize(target_size, Image.Resampling.LANCZOS)
             
             # Numpy array
             img_array = np.array(image, dtype=np.float32) / 255.0
             
-            # Kanal boyutu ekle
+            # Add channel dimension
             if len(img_array.shape) == 2:
                 img_array = np.expand_dims(img_array, axis=-1)
             
-            logger.info(f"Dönüşüm tamamlandı: shape={img_array.shape}")
+            logger.info(f"Conversion complete: shape={img_array.shape}")
             return img_array
             
         except Exception as e:
-            logger.error(f"Görüntü dönüşüm hatası: {e}", exc_info=True)
+            logger.error(f"Image conversion error: {e}", exc_info=True)
             return None
     
     def _process_array(
@@ -322,31 +322,31 @@ class ImageConverterService:
         target_size: Tuple[int, int]
     ) -> np.ndarray:
         """
-        Pixel array'i işler: resize, normalize, channel ekle.
+        Process pixel array: resize, normalize, add channel.
         """
-        # PIL Image oluştur
+        # Create PIL Image
         image = Image.fromarray(pixel_array)
         
-        # Grayscale'e çevir
+        # Convert to grayscale
         if image.mode != 'L':
             image = image.convert('L')
         
-        # Yeniden boyutlandır
+        # Resize
         if image.size != target_size:
             image = image.resize(target_size, Image.Resampling.LANCZOS)
         
-        # Numpy array ve 0-1 normalize
+        # Numpy array and normalize to 0-1
         img_array = np.array(image, dtype=np.float32) / 255.0
         
-        # Kanal boyutu ekle: (H, W) -> (H, W, 1)
+        # Add channel dimension: (H, W) -> (H, W, 1)
         if len(img_array.shape) == 2:
             img_array = np.expand_dims(img_array, axis=-1)
         
-        logger.info(f"Array hazır: shape={img_array.shape}, range=[{img_array.min():.2f}, {img_array.max():.2f}]")
+        logger.info(f"Array ready: shape={img_array.shape}, range=[{img_array.min():.2f}, {img_array.max():.2f}]")
         return img_array
     
     def _normalize_to_uint8(self, pixel_array: np.ndarray) -> np.ndarray:
-        """Pixel array'i 0-255 aralığına normalize eder."""
+        """Normalize pixel array to 0-255 range."""
         img_min = pixel_array.min()
         img_max = pixel_array.max()
         
@@ -364,10 +364,10 @@ class ImageConverterService:
         filename: Optional[str] = None
     ) -> Optional[bytes]:
         """
-        Herhangi bir formattaki görüntüyü PNG'ye dönüştürür.
+        Convert any format image to PNG.
         
         Returns:
-            bytes: PNG formatında görüntü
+            bytes: Image in PNG format
         """
         img_array = self.convert_to_numpy(image_bytes, target_size, filename)
         
@@ -375,21 +375,21 @@ class ImageConverterService:
             return None
         
         try:
-            # 0-255'e geri çevir
+            # Convert back to 0-255
             img_uint8 = (img_array[:, :, 0] * 255).astype(np.uint8)
             image = Image.fromarray(img_uint8)
             
-            # PNG olarak kaydet
+            # Save as PNG
             png_buffer = BytesIO()
             image.save(png_buffer, format='PNG')
             return png_buffer.getvalue()
             
         except Exception as e:
-            logger.error(f"PNG dönüşüm hatası: {e}")
+            logger.error(f"PNG conversion error: {e}")
             return None
     
     def check_health(self) -> Tuple[bool, str]:
-        """Servis sağlık kontrolü."""
+        """Service health check."""
         formats = []
         if PIL_AVAILABLE:
             formats.extend(["PNG", "JPEG", "JPG"])
@@ -399,10 +399,9 @@ class ImageConverterService:
             formats.append("NIFTI")
         
         if formats:
-            return True, f"Image Converter çalışıyor - Formatlar: {', '.join(formats)}"
-        return False, "Hiçbir format kütüphanesi yüklü değil"
+            return True, f"Image Converter running - Formats: {', '.join(formats)}"
+        return False, "No format libraries installed"
 
 
 # Singleton instance
 image_converter = ImageConverterService()
-

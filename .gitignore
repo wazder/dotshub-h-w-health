@@ -55,3 +55,4 @@ frontend/dist/
 
 # Data archive folder
 data/archive/
+data/vector_index.npz

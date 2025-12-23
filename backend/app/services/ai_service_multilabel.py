@@ -1,11 +1,11 @@
 """
-AI Service - Multi-Label PyTorch ResNet50 Model Entegrasyonu
-X-Ray görüntülerini analiz eder ve 14 hastalığı tespit eder
+AI Service - Multi-Label PyTorch ResNet50 Model Integration
+Analyzes X-Ray images and detects 14 diseases
 
-Bu servis yeni eğitilmiş multi-label modeli kullanır:
+This service uses the newly trained multi-label model:
 - Model: ResNet50 (Multi-Label Classification)
-- Dataset: NIH Chest X-rays (112K görüntü)
-- Sınıflar: 14 hastalık + No Finding
+- Dataset: NIH Chest X-rays (112K images)
+- Classes: 14 diseases + No Finding
 - Val AUC: 0.8347
 
 Pipeline:
@@ -33,7 +33,7 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 
-# 14 Hastalık listesi (eğitim sırasıyla aynı - DEĞİŞTİRME!)
+# 14 Disease labels (same order as training - DO NOT CHANGE!)
 DISEASE_LABELS = [
     "Atelectasis", "Cardiomegaly", "Effusion", "Infiltration", "Mass",
     "Nodule", "Pneumonia", "Pneumothorax", "Consolidation", "Edema",
@@ -42,7 +42,7 @@ DISEASE_LABELS = [
 
 NUM_CLASSES = len(DISEASE_LABELS)
 
-# Türkçe etiket çevirisi
+# Turkish label translations (for UI display)
 LABEL_TR = {
     "No Finding": "Normal - Bulgu Yok",
     "Atelectasis": "Atelektazi",
@@ -61,7 +61,7 @@ LABEL_TR = {
     "Hernia": "Herni"
 }
 
-# Hastalık açıklamaları
+# Disease descriptions (Turkish - for UI display)
 DISEASE_DESCRIPTIONS = {
     "Atelectasis": "Akciğerin bir bölümünün çökmesi veya hava kaybetmesi.",
     "Cardiomegaly": "Kalp büyümesi, kalp yetmezliği belirtisi olabilir.",
@@ -86,8 +86,8 @@ IMAGENET_STD = [0.229, 0.224, 0.225]
 
 class ChestXrayMultiLabelModel(nn.Module):
     """
-    ResNet50 tabanlı multi-label sınıflandırma modeli.
-    14 hastalık için ayrı sigmoid çıktıları.
+    ResNet50-based multi-label classification model.
+    Separate sigmoid outputs for 14 diseases.
     """
     
     def __init__(self, num_classes: int = NUM_CLASSES, dropout: float = 0.5):
@@ -112,7 +112,7 @@ class ChestXrayMultiLabelModel(nn.Module):
         self._register_hook()
     
     def _register_hook(self):
-        """Embedding çıkarmak için hook."""
+        """Hook for extracting embeddings."""
         def hook(module, input, output):
             self.embedding = output.squeeze()
         self.backbone.avgpool.register_forward_hook(hook)
@@ -128,12 +128,12 @@ class ChestXrayMultiLabelModel(nn.Module):
 
 class MultiLabelAIService:
     """
-    Multi-label PyTorch model ile AI analiz servisi.
-    14 hastalığı ayrı ayrı tespit eder.
+    AI analysis service with multi-label PyTorch model.
+    Detects 14 diseases separately.
     """
     
     INPUT_SIZE = (224, 224)
-    THRESHOLD = 0.5  # Varsayılan eşik
+    THRESHOLD = 0.5  # Default threshold
     
     def __init__(self):
         self.model: Optional[ChestXrayMultiLabelModel] = None
@@ -141,7 +141,7 @@ class MultiLabelAIService:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.vector_dimension = 2048
         
-        # Model yolu - yeni multi-label model
+        # Model path - new multi-label model
         self.model_path = self._find_model_path()
         
         # Transform
@@ -151,48 +151,49 @@ class MultiLabelAIService:
             transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD)
         ])
         
-        # Modeli yükle
+        # Load model
         self._load_model()
         
-        logger.info(f"MultiLabel AI Service başlatıldı - Device: {self.device}, Model: {'Loaded' if self.model_loaded else 'Not Found'}")
+        logger.info(f"MultiLabel AI Service initialized - Device: {self.device}, Model: {'Loaded' if self.model_loaded else 'Not Found'}")
     
     def _find_model_path(self) -> Optional[Path]:
-        """Model dosyasını bul."""
+        """Find model file."""
         possible_paths = [
-            # Yeni multi-label model (öncelikli)
+            # New multi-label model (priority)
             Path(__file__).parent.parent.parent.parent / "model" / "model-2.pth",
             Path("/Users/wazder/Documents/GitHub/dotshub-h-w-health/model/model-2.pth"),
+            # Docker/workspace path
+            Path("/workspace/dotshub-h-w-health/model/model-2.pth"),
             # Fallback - best_model.pth
             Path(__file__).parent.parent.parent.parent / "model" / "best_model.pth",
-            Path("/Users/wazder/Documents/GitHub/dotshub-h-w-health/model/best_model.pth"),
         ]
         
         for path in possible_paths:
             if path.exists():
-                logger.info(f"Model dosyası bulundu: {path}")
+                logger.info(f"Model file found: {path}")
                 return path
         
-        logger.warning("Model dosyası bulunamadı!")
+        logger.warning("Model file not found!")
         return None
     
     def _load_model(self) -> bool:
-        """PyTorch modelini yükle."""
+        """Load PyTorch model."""
         if self.model_path is None or not self.model_path.exists():
-            logger.error(f"Model dosyası bulunamadı: {self.model_path}")
+            logger.error(f"Model file not found: {self.model_path}")
             return False
         
         try:
-            # Model oluştur
+            # Create model
             self.model = ChestXrayMultiLabelModel(num_classes=NUM_CLASSES)
             
-            # Checkpoint yükle
+            # Load checkpoint
             checkpoint = torch.load(self.model_path, map_location=self.device, weights_only=False)
             
             if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
                 self.model.load_state_dict(checkpoint['model_state_dict'])
                 best_auc = checkpoint.get('best_auc', 'N/A')
                 epoch = checkpoint.get('epoch', 'N/A')
-                logger.info(f"Checkpoint yüklendi - Epoch: {epoch}, Best AUC: {best_auc}")
+                logger.info(f"Checkpoint loaded - Epoch: {epoch}, Best AUC: {best_auc}")
             else:
                 self.model.load_state_dict(checkpoint)
             
@@ -200,48 +201,48 @@ class MultiLabelAIService:
             self.model.eval()
             
             self.model_loaded = True
-            logger.info(f"✅ Multi-label model başarıyla yüklendi: {self.model_path}")
+            logger.info(f"✅ Multi-label model loaded successfully: {self.model_path}")
             return True
             
         except Exception as e:
-            logger.error(f"Model yükleme hatası: {e}", exc_info=True)
+            logger.error(f"Model loading error: {e}", exc_info=True)
             self.model_loaded = False
             return False
     
     def analyze_image(self, image_bytes: bytes, filename: Optional[str] = None, threshold: float = 0.5) -> Dict:
         """
-        Görüntüyü analiz eder ve 14 hastalık için olasılıkları döndürür.
+        Analyzes the image and returns probabilities for 14 diseases.
         
         Args:
-            image_bytes: Görüntü dosyasının byte içeriği
-            filename: Opsiyonel dosya adı
-            threshold: Hastalık tespit eşiği (0-1)
+            image_bytes: Byte content of the image file
+            filename: Optional filename
+            threshold: Disease detection threshold (0-1)
             
         Returns:
-            dict: Analiz sonucu
+            dict: Analysis result
         """
         if not self.model_loaded:
-            logger.error("Model yüklenmemiş!")
-            return self._get_error_result("Model yüklenmemiş")
+            logger.error("Model not loaded!")
+            return self._get_error_result("Model not loaded")
         
         try:
-            # Format algıla
+            # Detect format
             detected_format = image_converter.detect_format(image_bytes, filename)
-            logger.info(f"AI analizi başlatılıyor - Format: {detected_format.value}")
+            logger.info(f"AI analysis starting - Format: {detected_format.value}")
             
-            # 1. Görüntüyü PIL Image'a dönüştür
+            # 1. Convert to PIL Image
             pil_image = self._bytes_to_pil(image_bytes, filename)
             
             if pil_image is None:
-                return self._get_error_result("Görüntü okunamadı")
+                return self._get_error_result("Could not read image")
             
-            # 2. RGB'ye dönüştür
+            # 2. Convert to RGB
             if pil_image.mode != 'RGB':
                 pil_image = pil_image.convert('RGB')
             
-            logger.info(f"Görüntü hazır: {pil_image.size}, mode: {pil_image.mode}")
+            logger.info(f"Image ready: {pil_image.size}, mode: {pil_image.mode}")
             
-            # 3. Transform uygula
+            # 3. Apply transform
             input_tensor = self.transform(pil_image).unsqueeze(0).to(self.device)
             
             # 4. Inference
@@ -257,7 +258,7 @@ class MultiLabelAIService:
             else:
                 embedding_np = np.zeros(self.vector_dimension, dtype=np.float32)
             
-            # 6. Tespit edilen hastalıklar
+            # 6. Detected diseases
             detected_diseases = []
             all_predictions = {}
             
@@ -273,31 +274,30 @@ class MultiLabelAIService:
                         "description": DISEASE_DESCRIPTIONS.get(label, "")
                     })
             
-            # Olasılığa göre sırala
+            # Sort by probability
             detected_diseases.sort(key=lambda x: x['probability'], reverse=True)
             
-            # 7. Ana sonuç belirle
+            # 7. Determine primary result
             if len(detected_diseases) == 0:
                 primary_label = "No Finding"
                 primary_label_tr = "Normal - Bulgu Yok"
                 is_pathology = False
-                confidence = "Yüksek"
+                confidence = "High"
             else:
                 primary_label = detected_diseases[0]['label']
                 primary_label_tr = detected_diseases[0]['label_tr']
                 is_pathology = True
                 
-                # Güven seviyesi
+                # Confidence level
                 max_prob = detected_diseases[0]['probability']
                 if max_prob >= 0.85:
-                    confidence = "Yüksek"
+                    confidence = "High"
                 elif max_prob >= 0.65:
-                    confidence = "Orta"
+                    confidence = "Medium"
                 else:
-                    confidence = "Düşük"
+                    confidence = "Low"
             
-            # Eski API uyumluluğu için probability değeri
-            # En yüksek hastalık olasılığı veya (1 - max) normal için
+            # Probability value for backward API compatibility
             max_disease_prob = max(probs) if len(probs) > 0 else 0
             
             result = {
@@ -314,19 +314,19 @@ class MultiLabelAIService:
             
             # Log
             if is_pathology:
-                diseases_str = ", ".join([d['label_tr'] for d in detected_diseases[:3]])
-                logger.info(f"AI analizi tamamlandı - {len(detected_diseases)} hastalık tespit edildi: {diseases_str}")
+                diseases_str = ", ".join([d['label'] for d in detected_diseases[:3]])
+                logger.info(f"AI analysis completed - {len(detected_diseases)} diseases detected: {diseases_str}")
             else:
-                logger.info(f"AI analizi tamamlandı - Normal (Bulgu Yok)")
+                logger.info(f"AI analysis completed - Normal (No Finding)")
             
             return result
             
         except Exception as e:
-            logger.error(f"Analiz hatası: {e}", exc_info=True)
+            logger.error(f"Analysis error: {e}", exc_info=True)
             return self._get_error_result(str(e))
     
     def _bytes_to_pil(self, image_bytes: bytes, filename: Optional[str] = None) -> Optional[Image.Image]:
-        """Byte verisini PIL Image'a dönüştür."""
+        """Convert byte data to PIL Image."""
         try:
             pil_image = Image.open(BytesIO(image_bytes))
             return pil_image
@@ -347,12 +347,12 @@ class MultiLabelAIService:
         return None
     
     def _get_error_result(self, error_msg: str = "Unknown error") -> Dict:
-        """Hata durumunda döndürülecek sonuç."""
+        """Returns result for error case."""
         return {
             "label": "Error",
-            "label_tr": f"Hata: {error_msg}",
+            "label_tr": f"Error: {error_msg}",
             "probability": 0.0,
-            "confidence": "Yok",
+            "confidence": "None",
             "embedding": [0.0] * self.vector_dimension,
             "is_pathology": False,
             "detected_diseases": [],
@@ -362,15 +362,15 @@ class MultiLabelAIService:
         }
     
     def get_disease_info(self, label: str) -> Dict:
-        """Hastalık hakkında bilgi döndür."""
+        """Returns information about a disease."""
         return {
             "label": label,
             "label_tr": LABEL_TR.get(label, label),
-            "description": DISEASE_DESCRIPTIONS.get(label, "Bilgi mevcut değil.")
+            "description": DISEASE_DESCRIPTIONS.get(label, "Information not available.")
         }
     
     def get_status(self) -> Dict:
-        """Servis durumunu döndür."""
+        """Returns service status."""
         return {
             "model_loaded": self.model_loaded,
             "model_path": str(self.model_path) if self.model_path else None,
@@ -382,8 +382,8 @@ class MultiLabelAIService:
     
     def get_embedding_for_image(self, image_path: str) -> Optional[np.ndarray]:
         """
-        Bir görüntü dosyasından embedding çıkar.
-        Vektör veritabanı oluşturmak için kullanılır.
+        Extracts embedding from an image file.
+        Used for building vector database.
         """
         try:
             with open(image_path, 'rb') as f:
@@ -401,7 +401,7 @@ class MultiLabelAIService:
             return None
     
     def get_model_info(self) -> Dict:
-        """Model bilgilerini döndürür."""
+        """Returns model information."""
         return {
             "name": "ChestXray-ResNet50-MultiLabel",
             "version": "2.0.0",
@@ -417,16 +417,16 @@ class MultiLabelAIService:
         }
     
     def check_health(self) -> Tuple[bool, str]:
-        """Servis sağlık kontrolü."""
+        """Service health check."""
         converter_ok, converter_msg = image_converter.check_health()
         
         if self.model_loaded and converter_ok:
-            return True, f"Multi-Label AI servisi çalışıyor (14 hastalık) - Device: {self.device}"
+            return True, f"Multi-Label AI service running (14 diseases) - Device: {self.device}"
         elif not self.model_loaded:
-            return False, f"Model yüklenemedi: {self.model_path}"
+            return False, f"Model could not be loaded: {self.model_path}"
         elif not converter_ok:
-            return False, f"Image Converter hatası: {converter_msg}"
-        return False, "Bilinmeyen hata"
+            return False, f"Image Converter error: {converter_msg}"
+        return False, "Unknown error"
 
 
 # Singleton instance

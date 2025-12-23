@@ -1,6 +1,6 @@
 """
-PACS Service - Orthanc PACS sunucusu ile iletişim
-DICOM görüntülerini yükler ve yönetir
+PACS Service - Orthanc PACS Server Communication
+Uploads and manages DICOM images
 """
 
 import os
@@ -11,7 +11,7 @@ from io import BytesIO
 import pydicom
 from pydicom.dataset import Dataset
 
-# Orthanc client (opsiyonel - sunucu yoksa mock kullanılır)
+# Orthanc client (optional - uses mock if server not available)
 try:
     from pyorthanc import Orthanc
     PYORTHANC_AVAILABLE = True
@@ -27,18 +27,18 @@ logger = logging.getLogger(__name__)
 
 class PACSService:
     """
-    Orthanc PACS sunucusu ile iletişim servisi.
-    Sunucu mevcut değilse mock mod kullanır.
+    Orthanc PACS server communication service.
+    Uses mock mode if server is not available.
     """
     
     def __init__(self):
         self.orthanc_url = os.getenv("ORTHANC_URL", "http://localhost:8042")
         self.username = os.getenv("ORTHANC_USERNAME", "orthanc")
         self.password = os.getenv("ORTHANC_PASSWORD", "orthanc")
-        self.mock_mode = True  # Prototip için varsayılan olarak mock mod
+        self.mock_mode = True  # Default mock mode for prototype
         self.orthanc_client = None
         
-        # Orthanc bağlantısını dene
+        # Try Orthanc connection
         if PYORTHANC_AVAILABLE and not self.mock_mode:
             try:
                 self.orthanc_client = Orthanc(
@@ -46,29 +46,29 @@ class PACSService:
                     username=self.username,
                     password=self.password
                 )
-                # Bağlantı testi
+                # Connection test
                 self.orthanc_client.get_system()
                 self.mock_mode = False
-                logger.info(f"Orthanc PACS bağlantısı başarılı: {self.orthanc_url}")
+                logger.info(f"Orthanc PACS connection successful: {self.orthanc_url}")
             except Exception as e:
-                logger.warning(f"Orthanc bağlantısı başarısız, mock mod aktif: {e}")
+                logger.warning(f"Orthanc connection failed, mock mode active: {e}")
                 self.mock_mode = True
     
     def upload_dicom(self, dicom_bytes: bytes) -> dict:
         """
-        DICOM dosyasını PACS'a yükler.
+        Upload DICOM file to PACS.
         
         Args:
-            dicom_bytes: DICOM dosyasının byte içeriği
+            dicom_bytes: DICOM file byte content
             
         Returns:
-            dict: Yükleme sonucu
+            dict: Upload result
         """
         if self.mock_mode:
             return self._mock_upload(dicom_bytes)
         
         try:
-            # Gerçek Orthanc yükleme
+            # Real Orthanc upload
             result = self.orthanc_client.post_instances(dicom_bytes)
             
             return {
@@ -76,32 +76,32 @@ class PACSService:
                 "orthanc_id": result.get("ID"),
                 "study_uid": result.get("ParentStudy"),
                 "series_uid": result.get("ParentSeries"),
-                "message": "DICOM başarıyla PACS'a yüklendi"
+                "message": "DICOM başarıyla PACS'a yüklendi"  # Turkish for UI
             }
         except Exception as e:
-            logger.error(f"PACS yükleme hatası: {e}")
+            logger.error(f"PACS upload error: {e}")
             return {
                 "success": False,
                 "orthanc_id": None,
                 "study_uid": None,
                 "series_uid": None,
-                "message": f"PACS yükleme hatası: {str(e)}"
+                "message": f"PACS yükleme hatası: {str(e)}"  # Turkish for UI
             }
     
     def _mock_upload(self, dicom_bytes: bytes) -> dict:
         """
-        Mock PACS yükleme - gerçek sunucu olmadan test için.
+        Mock PACS upload - for testing without real server.
         
         Args:
-            dicom_bytes: DICOM dosyasının byte içeriği
+            dicom_bytes: DICOM file byte content
             
         Returns:
-            dict: Simüle edilmiş yükleme sonucu
+            dict: Simulated upload result
         """
         import uuid
         import hashlib
         
-        # DICOM dosyasından metadata çıkarmayı dene
+        # Try to extract metadata from DICOM file
         study_uid = None
         series_uid = None
         
@@ -109,61 +109,61 @@ class PACSService:
             ds = pydicom.dcmread(BytesIO(dicom_bytes))
             study_uid = str(getattr(ds, 'StudyInstanceUID', None))
             series_uid = str(getattr(ds, 'SeriesInstanceUID', None))
-            logger.info(f"DICOM metadata okundu - Study: {study_uid[:20]}...")
+            logger.info(f"DICOM metadata read - Study: {study_uid[:20]}...")
         except Exception as e:
-            logger.warning(f"DICOM parse edilemedi (mock mod devam ediyor): {e}")
-            # Dummy UID'ler oluştur
+            logger.warning(f"DICOM parse failed (mock mode continues): {e}")
+            # Create dummy UIDs
             study_uid = f"1.2.826.0.1.{uuid.uuid4().int % 1000000}"
             series_uid = f"1.2.826.0.1.{uuid.uuid4().int % 1000000}.1"
         
-        # Mock Orthanc ID oluştur
+        # Create mock Orthanc ID
         orthanc_id = hashlib.md5(dicom_bytes[:1024] if len(dicom_bytes) > 1024 else dicom_bytes).hexdigest()[:16]
         
-        logger.info(f"[MOCK] PACS yükleme simüle edildi - ID: {orthanc_id}")
+        logger.info(f"[MOCK] PACS upload simulated - ID: {orthanc_id}")
         
         return {
             "success": True,
             "orthanc_id": orthanc_id,
             "study_uid": study_uid,
             "series_uid": series_uid,
-            "message": "[MOCK] DICOM başarıyla simüle PACS'a yüklendi"
+            "message": "[MOCK] DICOM başarıyla simüle PACS'a yüklendi"  # Turkish for UI
         }
     
     def get_instance(self, orthanc_id: str) -> Optional[bytes]:
         """
-        PACS'tan bir instance'ı getirir.
+        Get instance from PACS.
         
         Args:
             orthanc_id: Orthanc instance ID
             
         Returns:
-            bytes: DICOM dosya içeriği veya None
+            bytes: DICOM file content or None
         """
         if self.mock_mode:
-            logger.warning("[MOCK] Instance getirme mock modda desteklenmiyor")
+            logger.warning("[MOCK] Instance retrieval not supported in mock mode")
             return None
         
         try:
             return self.orthanc_client.get_instance_file(orthanc_id)
         except Exception as e:
-            logger.error(f"Instance getirme hatası: {e}")
+            logger.error(f"Instance retrieval error: {e}")
             return None
     
     def check_connection(self) -> Tuple[bool, str]:
         """
-        PACS bağlantısını kontrol eder.
+        Check PACS connection.
         
         Returns:
-            Tuple[bool, str]: (bağlantı_durumu, mesaj)
+            Tuple[bool, str]: (connection_status, message)
         """
         if self.mock_mode:
-            return True, "Mock mod aktif - gerçek PACS bağlantısı yok"
+            return True, "Mock mod aktif - gerçek PACS bağlantısı yok"  # Turkish for UI
         
         try:
             system_info = self.orthanc_client.get_system()
-            return True, f"Orthanc {system_info.get('Version', 'unknown')} bağlı"
+            return True, f"Orthanc {system_info.get('Version', 'unknown')} bağlı"  # Turkish for UI
         except Exception as e:
-            return False, f"PACS bağlantı hatası: {str(e)}"
+            return False, f"PACS bağlantı hatası: {str(e)}"  # Turkish for UI
 
 
 # Singleton instance

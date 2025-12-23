@@ -1,11 +1,11 @@
 """
-Vector Search Service - Gerçek Embedding Tabanlı Benzer Vaka Arama
-Cosine similarity ile en benzer vakaları bulur.
+Vector Search Service - Real Embedding-Based Similar Case Search
+Finds most similar cases using cosine similarity.
 
-Bu servis:
-1. Başlangıçta dataset'ten sample görüntülerin embedding'lerini çıkarır
-2. Yeni görüntü için embedding alır
-3. Cosine similarity ile en benzer vakaları bulur
+This service:
+1. Extracts embeddings from sample images at startup
+2. Gets embedding for new image
+3. Finds most similar cases using cosine similarity
 """
 
 import os
@@ -26,50 +26,60 @@ logger = logging.getLogger(__name__)
 
 class VectorSearchService:
     """
-    Gerçek vektör tabanlı benzer vaka arama servisi.
+    Real vector-based similar case search service.
     """
     
     def __init__(self):
         self.vector_dimension = 2048  # ResNet50 avgpool output
-        self.index_path = Path(__file__).parent.parent / "data" / "vector_index.npz"
         
-        # Vektör veritabanı
+        # Check for full index in main data folder first, then fallback to backend/app/data
+        main_data_index = Path(__file__).parent.parent.parent.parent / "data" / "vector_index.npz"
+        backend_index = Path(__file__).parent.parent / "data" / "vector_index.npz"
+        
+        if main_data_index.exists():
+            self.index_path = main_data_index
+            logger.info(f"Using full vector index from: {main_data_index}")
+        else:
+            self.index_path = backend_index
+            logger.info(f"Using backend vector index from: {backend_index}")
+        
+        # Vector database
         self.embeddings: Optional[np.ndarray] = None
         self.image_ids: List[str] = []
         self.patient_ids: List[str] = []
         
-        # Index yükleme/oluşturma
+        # Index loading/creation
         self._initialized = False
         
-        logger.info("Vector Search Service başlatıldı")
+        logger.info("Vector Search Service initialized")
     
     def initialize(self, dataset_service, ai_service, sample_size: int = 100):
         """
-        Vektör veritabanını başlat.
-        Eğer kayıtlı index varsa yükle, yoksa oluştur.
+        Initialize vector database.
+        Load saved index if available, otherwise create new one.
         """
         if self._initialized:
             return True
         
-        # Önce kayıtlı index'i kontrol et
+        # First check for saved index
         if self._load_index():
             self._initialized = True
             return True
         
-        # Index yoksa oluştur
-        logger.info(f"Vektör index'i oluşturuluyor - {sample_size} örnek...")
+        # Create index if not found
+        logger.info(f"Creating vector index - {sample_size} samples...")
         
         try:
-            # Patoloji görüntülerinden sample al
+            # Sample from pathology images
             pathology_images = dataset_service.get_pathology_images(limit=sample_size * 2)
             
             if len(pathology_images) == 0:
-                logger.warning("Patoloji görüntüsü bulunamadı!")
+                logger.warning("No pathology images found!")
                 self._create_mock_index(dataset_service)
                 self._initialized = True
                 return True
             
-            # Rastgele seç
+            # Random selection
             sample_images = random.sample(pathology_images, min(sample_size, len(pathology_images)))
             
             embeddings_list = []
@@ -82,14 +92,14 @@ class VectorSearchService:
                 if image_path is None:
                     continue
                 
-                # Embedding çıkar
+                # Extract embedding
                 embedding = ai_service.get_embedding_for_image(str(image_path))
                 
                 if embedding is not None:
                     embeddings_list.append(embedding)
                     image_ids_list.append(image_id)
                     
-                    # Hasta ID'sini al
+                    # Get patient ID
                     image_info = dataset_service.get_image_info(image_id)
                     if image_info:
                         patient_ids_list.append(image_info['patient_id'])
@@ -105,27 +115,27 @@ class VectorSearchService:
                 self.image_ids = image_ids_list
                 self.patient_ids = patient_ids_list
                 
-                # Index'i kaydet
+                # Save index
                 self._save_index()
                 
-                logger.info(f"Vektör index'i oluşturuldu: {len(self.image_ids)} görüntü")
+                logger.info(f"Vector index created: {len(self.image_ids)} images")
                 self._initialized = True
                 return True
             else:
-                logger.warning("Hiç embedding çıkarılamadı, mock index kullanılıyor")
+                logger.warning("No embeddings extracted, using mock index")
                 self._create_mock_index(dataset_service)
                 self._initialized = True
                 return True
             
         except Exception as e:
-            logger.error(f"Index oluşturma hatası: {e}", exc_info=True)
+            logger.error(f"Index creation error: {e}", exc_info=True)
             self._create_mock_index(dataset_service)
             self._initialized = True
             return False
     
     def _create_mock_index(self, dataset_service):
-        """Model yüklenemediğinde mock index oluştur."""
-        logger.info("Mock vektör index'i oluşturuluyor...")
+        """Create mock index when model cannot be loaded."""
+        logger.info("Creating mock vector index...")
         
         pathology_images = dataset_service.get_pathology_images(limit=50)
         
@@ -139,7 +149,7 @@ class VectorSearchService:
             else:
                 self.patient_ids.append("unknown")
         
-        # Mock embeddings (rastgele ama tutarlı)
+        # Mock embeddings (random but consistent)
         np.random.seed(42)
         self.embeddings = np.random.randn(len(self.image_ids), self.vector_dimension).astype(np.float32)
         
@@ -147,10 +157,10 @@ class VectorSearchService:
         norms = np.linalg.norm(self.embeddings, axis=1, keepdims=True)
         self.embeddings = self.embeddings / (norms + 1e-8)
         
-        logger.info(f"Mock index oluşturuldu: {len(self.image_ids)} görüntü")
+        logger.info(f"Mock index created: {len(self.image_ids)} images")
     
     def _load_index(self) -> bool:
-        """Kayıtlı index'i yükle."""
+        """Load saved index."""
         if not self.index_path.exists():
             return False
         
@@ -160,15 +170,15 @@ class VectorSearchService:
             self.image_ids = data['image_ids'].tolist()
             self.patient_ids = data['patient_ids'].tolist()
             
-            logger.info(f"Vektör index'i yüklendi: {len(self.image_ids)} görüntü")
+            logger.info(f"Vector index loaded: {len(self.image_ids)} images")
             return True
             
         except Exception as e:
-            logger.warning(f"Index yükleme hatası: {e}")
+            logger.warning(f"Index loading error: {e}")
             return False
     
     def _save_index(self):
-        """Index'i diske kaydet."""
+        """Save index to disk."""
         try:
             self.index_path.parent.mkdir(parents=True, exist_ok=True)
             
@@ -179,37 +189,37 @@ class VectorSearchService:
                 patient_ids=np.array(self.patient_ids)
             )
             
-            logger.info(f"Vektör index'i kaydedildi: {self.index_path}")
+            logger.info(f"Vector index saved: {self.index_path}")
             
         except Exception as e:
-            logger.error(f"Index kaydetme hatası: {e}")
+            logger.error(f"Index saving error: {e}")
     
     def search_similar(self, query_vector: List[float], top_k: int = 5) -> List[Tuple[str, str, float]]:
         """
-        Benzer vakaları bul.
+        Find similar cases.
         
         Args:
-            query_vector: Sorgu embedding vektörü
-            top_k: Döndürülecek sonuç sayısı
+            query_vector: Query embedding vector
+            top_k: Number of results to return
             
         Returns:
             List of (patient_id, image_id, similarity_score)
         """
         if self.embeddings is None or len(self.embeddings) == 0:
-            logger.warning("Vektör index'i boş!")
+            logger.warning("Vector index is empty!")
             return []
         
         try:
-            # Query vektörünü numpy'a çevir
+            # Convert query vector to numpy
             query = np.array(query_vector, dtype=np.float32).flatten()
             
             # Normalize
             query = query / (np.linalg.norm(query) + 1e-8)
             
-            # Cosine similarity hesapla
+            # Calculate cosine similarity
             similarities = np.dot(self.embeddings, query)
             
-            # En yüksek k indeksi bul
+            # Find top k indices
             top_indices = np.argsort(similarities)[::-1][:top_k]
             
             results = []
@@ -218,7 +228,7 @@ class VectorSearchService:
             for idx in top_indices:
                 patient_id = self.patient_ids[idx]
                 
-                # Aynı hastayı birden fazla kez ekleme
+                # Don't add same patient multiple times
                 if patient_id in seen_patients:
                     continue
                 
@@ -227,7 +237,7 @@ class VectorSearchService:
                 image_id = self.image_ids[idx]
                 score = float(similarities[idx])
                 
-                # Skor'u 0-1 arasına normalize et
+                # Normalize score to 0-1 range
                 normalized_score = (score + 1) / 2  # Cosine sim [-1, 1] -> [0, 1]
                 
                 results.append((patient_id, image_id, normalized_score))
@@ -235,16 +245,16 @@ class VectorSearchService:
                 if len(results) >= top_k:
                     break
             
-            logger.info(f"Vektör araması tamamlandı - {len(results)} sonuç bulundu")
+            logger.info(f"Vector search completed - {len(results)} results found")
             
             return results
             
         except Exception as e:
-            logger.error(f"Arama hatası: {e}", exc_info=True)
+            logger.error(f"Search error: {e}", exc_info=True)
             return []
     
     def add_to_index(self, embedding: List[float], image_id: str, patient_id: str):
-        """Index'e yeni vektör ekle."""
+        """Add new vector to index."""
         try:
             new_embedding = np.array(embedding, dtype=np.float32).reshape(1, -1)
             new_embedding = new_embedding / (np.linalg.norm(new_embedding) + 1e-8)
@@ -257,17 +267,17 @@ class VectorSearchService:
             self.image_ids.append(image_id)
             self.patient_ids.append(patient_id)
             
-            # Her 10 eklentiden sonra kaydet
+            # Save every 10 additions
             if len(self.image_ids) % 10 == 0:
                 self._save_index()
             
-            logger.info(f"Vektör eklendi: {image_id} -> toplam {len(self.image_ids)}")
+            logger.info(f"Vector added: {image_id} -> total {len(self.image_ids)}")
             
         except Exception as e:
-            logger.error(f"Vektör ekleme hatası: {e}")
+            logger.error(f"Vector addition error: {e}")
     
     def get_stats(self) -> Dict:
-        """Index istatistikleri."""
+        """Get index statistics."""
         return {
             'total_vectors': len(self.image_ids) if self.image_ids else 0,
             'dimension': self.vector_dimension,
@@ -277,12 +287,12 @@ class VectorSearchService:
         }
     
     def check_health(self) -> Tuple[bool, str]:
-        """Servis sağlık kontrolü."""
+        """Service health check."""
         if self._initialized and self.embeddings is not None:
-            return True, f"Vektör DB çalışıyor - {len(self.image_ids)} vektör"
+            return True, f"Vector DB running - {len(self.image_ids)} vectors"
         elif self._initialized:
-            return True, "Vektör DB çalışıyor - Boş index"
-        return False, "Vektör DB başlatılmadı"
+            return True, "Vector DB running - Empty index"
+        return False, "Vector DB not initialized"
 
 
 # Singleton instance
