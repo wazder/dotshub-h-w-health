@@ -4,11 +4,13 @@ import AnalysisView from './AnalysisView';
 import ResultsView from './ResultsView';
 import api from '../services/api';
 import { useAnalysis } from '../hooks/useApi';
+import { useToast } from './ToastProvider';
 
 const Dashboard = ({ onSelectPatient }) => {
     const [step, setStep] = useState('upload'); // upload, analyzing, results
     const [currentImage, setCurrentImage] = useState(null);
     const [currentFile, setCurrentFile] = useState(null);
+    const { showToast } = useToast();
     
     // API entegrasyonu için hook
     const analysis = useAnalysis();
@@ -26,10 +28,8 @@ const Dashboard = ({ onSelectPatient }) => {
             // Başarılı analiz - results ekranına geç
             setStep('results');
         } else if (analysis.isError) {
-            // Hata durumunda upload ekranına dön
-            console.error('Analiz hatası:', analysis.error);
-            // Kullanıcıya hata göster (opsiyonel olarak alert yerine toast kullanılabilir)
-            alert(`Analiz hatası: ${analysis.error?.message || 'Bilinmeyen hata'}`);
+            // Hata durumunda upload ekranına dön ve toast göster
+            showToast(`Analiz hatası: ${analysis.error?.message || 'Bilinmeyen hata'}`, 'error');
             handleReset();
         }
     };

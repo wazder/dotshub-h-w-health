@@ -29,7 +29,7 @@ const UploadZone = ({ onUpload }) => {
                 type="file"
                 ref={fileInputRef}
                 className="hidden"
-                accept="image/*,.dcm"
+                accept="image/*,.dcm,.dicom,.nii,.nii.gz"
                 onChange={handleChange}
             />
 

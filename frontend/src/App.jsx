@@ -67,7 +67,7 @@ function App() {
           setSearchError('Hasta bulunamadı');
         }
       } catch (error) {
-        console.error('Arama hatası:', error);
+        // Hasta arama hatası - sessizce hata mesajı göster
         setSearchError('Hasta bulunamadı veya bağlantı hatası');
       } finally {
         setIsSearching(false);
@@ -93,10 +93,7 @@ function App() {
       {/* Top Header */}
       <header className="h-14 border-b border-[var(--border)] bg-[var(--bg-card)] flex items-center px-6 justify-between flex-shrink-0 relative z-50">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentView('dashboard')}>
-          <div className="w-6 h-6 bg-[var(--primary)] rounded flex items-center justify-center">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M2 12h20" /></svg>
-          </div>
-          <span className="font-bold text-lg tracking-tight">Ellie <span className="text-[var(--text-muted)] font-normal text-sm"></span></span>
+          <img src="/ellie.png" alt="Ellie" className="h-8 w-auto" />
         </div>
 
         {/* Search Bar */}

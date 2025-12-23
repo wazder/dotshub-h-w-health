@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getPatient } from '../services/api';
 
 // Tıbbi terim çevirileri ve açıklamaları
 const MEDICAL_TERMS = {
@@ -43,17 +44,15 @@ const PatientDetailView = ({ patient, onBack, returnToResults }) => {
         const fetchPatientData = async () => {
             try {
                 setLoading(true);
-                const response = await fetch(`/api/patients/${patientId}`);
-                
-                if (response.ok) {
-                    const data = await response.json();
+                const data = await getPatient(patientId);
+                if (data?.patient) {
                     setPatientData(data.patient);
                 } else {
                     // API'den veri gelmezse prop'lardan oluştur
                     setPatientData(null);
                 }
             } catch (err) {
-                console.error('Patient fetch error:', err);
+                // API hatası - sessizce fallback kullan
                 setError(err.message);
             } finally {
                 setLoading(false);
